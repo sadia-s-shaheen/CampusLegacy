@@ -33,25 +33,17 @@ export function BottomNav() {
                 isActive ? "bg-[#22393c]/10" : "hover:bg-[#22393c]/5"
               }`}
             >
-              {item.isAction ? (
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#22393c] text-white shadow-md">
-                  <item.icon className="size-5" strokeWidth={1.8} />
-                </div>
-              ) : (
-                <item.icon
-                  className={`size-5 ${isActive ? "text-[#22393c]" : "text-[#668184]"}`}
-                  strokeWidth={1.8}
-                />
-              )}
-              {!item.isAction && (
-                <span
-                    className={`mt-1 whitespace-nowrap text-[10px] font-medium ${
-                    isActive ? "text-[#22393c]" : "text-[#668184]"
-                  }`}
-                >
-                  {item.label}
-                </span>
-              )}
+              <item.icon
+                className={`size-5 ${isActive ? "text-[#22393c]" : "text-[#668184]"}`}
+                strokeWidth={1.8}
+              />
+              <span
+                className={`mt-1 whitespace-nowrap text-[10px] font-medium ${
+                  isActive ? "text-[#22393c]" : "text-[#668184]"
+                }`}
+              >
+                {item.label}
+              </span>
             </Link>
           )
         })}

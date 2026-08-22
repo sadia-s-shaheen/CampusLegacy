@@ -2,11 +2,11 @@
 import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Plus, Loader2 } from "lucide-react"
+import Link from "next/link"
 import { supabase } from "@/lib/supabase/client"
 
 const tabs = ["Projects", "Skills", "People"]
 
-// Helper to generate deterministic graph positions
 const generatePositions = (count: number) => {
   const positions = []
   const centerX = 50, centerY = 50
@@ -33,19 +33,18 @@ export function ExploreCampus() {
         let data: any[] = []
         if (activeTab === "Projects") {
           const { data: res } = await supabase.from("projects").select("id, title").eq("visibility", "public").limit(7)
-          data = res || []
+          data = res?.map((r: any) => ({ ...r, label: r.title, href: `/projects/${r.id}` })) || []
         } else if (activeTab === "Skills") {
           const { data: res } = await supabase.from("skills").select("name").limit(7)
-          data = res?.map((r: any) => ({ id: r.name, label: r.name })) || []
+          data = res?.map((r: any) => ({ id: r.name, label: r.name, href: null })) || []
         } else {
           const { data: res } = await supabase.from("people").select("id, full_name").limit(7)
-          data = res?.map((r: any) => ({ id: r.id, label: r.full_name })) || []
+          data = res?.map((r: any) => ({ ...r, label: r.full_name, href: `/profile/${r.id}` })) || []
         }
 
         const positions = generatePositions(data.length)
         const formattedNodes = data.map((item, index) => ({
-          id: item.id || item.label,
-          label: item.label || item.title,
+          ...item,
           x: positions[index].x,
           y: positions[index].y,
           active: index === 0
@@ -92,7 +91,7 @@ export function ExploreCampus() {
           </div>
         ) : (
           <motion.div layout className="glass-button glass-aqua relative h-[400px] w-full overflow-hidden rounded-3xl">
-            <svg className="absolute inset-0 h-full w-full">
+            <svg className="absolute inset-0 h-full w-full pointer-events-none">
               {nodes.map((node) => (
                 <line
                   key={`line-${node.id}`}
@@ -108,25 +107,32 @@ export function ExploreCampus() {
             </svg>
 
             <AnimatePresence mode="popLayout">
-              {nodes.map((node) => (
-                <motion.div
-                  key={`${activeTab}-${node.id}`}
-                  initial={{ scale: 0, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  exit={{ scale: 0, opacity: 0 }}
-                  transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                  className="absolute -translate-x-1/2 -translate-y-1/2"
-                  style={{ left: `${node.x}%`, top: `${node.y}%` }}
-                >
-                  <div
-                    className={`flex items-center justify-center rounded-full px-4 py-2 text-xs font-semibold shadow-sm transition-transform hover:scale-105 ${
-                      node.active ? "glass-button glass-ink text-white" : "glass-button glass-neutral text-[#22393c]"
-                    }`}
+              {nodes.map((node) => {
+                const content = (
+                  <motion.div
+                    key={`${activeTab}-${node.id}`}
+                    initial={{ scale: 0, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0, opacity: 0 }}
+                    transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                    className={`absolute -translate-x-1/2 -translate-y-1/2 z-10 ${node.href ? 'cursor-pointer' : ''}`}
+                    style={{ left: `${node.x}%`, top: `${node.y}%` }}
                   >
-                    {node.label}
-                  </div>
-                </motion.div>
-              ))}
+                    <div
+                      className={`flex items-center justify-center rounded-full px-4 py-2 text-xs font-semibold shadow-sm transition-transform hover:scale-110 ${
+                        node.active ? "glass-button glass-ink text-white" : "glass-button glass-neutral text-[#22393c]"
+                      }`}
+                    >
+                      {node.label}
+                    </div>
+                  </motion.div>
+                )
+
+                if (node.href) {
+                  return <Link key={`link-${node.id}`} href={node.href}>{content}</Link>
+                }
+                return content
+              })}
             </AnimatePresence>
 
             <button className="absolute bottom-4 right-4 flex h-10 w-10 items-center justify-center rounded-full bg-[#22393c] text-white shadow-lg transition-transform hover:scale-105">

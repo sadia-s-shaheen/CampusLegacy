@@ -4,14 +4,15 @@ import { motion } from "framer-motion"
 import { ArrowRight, ArrowLeft, Check, GraduationCap, Code, Heart } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase/client"
+import { useDepartments, useSkills } from "@/lib/hooks/use-profile-options"
 
-const departments = ["Computer Engineering", "Information Technology", "AI & Data Science", "Electronics & Telecomm", "Mechanical"]
 const years = ["1st Year", "2nd Year", "3rd Year", "4th Year"]
-const availableSkills = ["React", "Next.js", "Python", "Node.js", "Figma", "UI/UX", "Machine Learning", "AWS", "SQL", "Git"]
 const availableInterests = ["Open Source", "Accessibility", "Web3", "AI/ML", "Product Design", "Startups"]
 
 export function OnboardingView() {
   const router = useRouter()
+  const { options: departmentOptions } = useDepartments()
+  const { options: skillOptions } = useSkills()
   const [step, setStep] = useState(1)
   const [loading, setLoading] = useState(false)
   
@@ -19,7 +20,7 @@ export function OnboardingView() {
     rollNumber: "",
     phone: "",
     github: "",
-    department: "",
+    departmentId: "",
     year: "",
     skills: [] as string[],
     interests: [] as string[],
@@ -38,33 +39,20 @@ export function OnboardingView() {
 
       const { data: existingSkills } = await supabase
         .from("people_skills")
-        .select("skills(name)")
+        .select("skill_id, skills(id, name)")
         .eq("person_id", user.id)
 
       if (profile || existingSkills) {
-        let department = ""
-        if (profile?.department_id) {
-          const { data: departmentData } = await supabase
-            .from("departments")
-            .select("name")
-            .eq("id", profile.department_id)
-            .maybeSingle()
-          department = departmentData?.name || ""
-        }
-
         setFormData((current) => ({
           ...current,
           rollNumber: profile?.roll_number || "",
           phone: profile?.phone_number || "",
           github: profile?.github_url || "",
-          department,
+          departmentId: profile?.department_id || "",
           year: profile?.year
             ? `${profile.year}${profile.year === 1 ? "st" : profile.year === 2 ? "nd" : profile.year === 3 ? "rd" : "th"} Year`
             : "",
-          skills: existingSkills?.map((skill: any) => {
-            const relation = Array.isArray(skill.skills) ? skill.skills[0] : skill.skills
-            return relation?.name
-          }).filter(Boolean) || [],
+          skills: existingSkills?.map((skill: any) => skill.skill_id).filter(Boolean) || [],
           interests: profile?.interests || [],
         }))
       }
@@ -91,18 +79,6 @@ export function OnboardingView() {
 
       // Safely parse year to prevent NaN errors
       const yearValue = formData.year ? parseInt(formData.year.replace(/\D/g, ""), 10) : null
-      let departmentId: string | null = null
-
-      if (formData.department) {
-        const { data: department } = await supabase
-          .from("departments")
-          .select("id")
-          .eq("name", formData.department)
-          .single()
-
-        departmentId = department?.id || null
-      }
-
             // Change .update() to .upsert()
       const { error } = await supabase
         .from("people")
@@ -112,7 +88,7 @@ export function OnboardingView() {
           roll_number: formData.rollNumber || null,
           phone_number: formData.phone || null,
           github_url: formData.github || null,
-          department_id: departmentId,
+          department_id: formData.departmentId || null,
           year: yearValue,
           interests: formData.interests,
           is_verified: false,
@@ -123,13 +99,6 @@ export function OnboardingView() {
         throw new Error(error.message)
       }
 
-      const { data: skillData, error: skillFetchError } = await supabase
-        .from("skills")
-        .select("id")
-        .in("name", formData.skills)
-
-      if (skillFetchError) throw new Error(skillFetchError.message)
-
       const { data: existingSkills, error: existingSkillsError } = await supabase
         .from("people_skills")
         .select("skill_id, proficiency, years_experience")
@@ -137,7 +106,7 @@ export function OnboardingView() {
 
       if (existingSkillsError) throw new Error(existingSkillsError.message)
 
-      const selectedSkillIds = new Set((skillData || []).map((skill) => skill.id))
+      const selectedSkillIds = new Set(formData.skills)
       const removedSkills = (existingSkills || []).filter((skill) => !selectedSkillIds.has(skill.skill_id))
 
       for (const skill of removedSkills) {
@@ -150,12 +119,12 @@ export function OnboardingView() {
         if (deleteError) throw new Error(deleteError.message)
       }
 
-      if (skillData && skillData.length > 0) {
+      if (formData.skills.length > 0) {
         const existingSkillIds = new Set((existingSkills || []).map((skill) => skill.skill_id))
-        const newSkills = skillData.filter((skill) => !existingSkillIds.has(skill.id))
+        const newSkills = formData.skills.filter((skillId) => !existingSkillIds.has(skillId))
         const { error: skillInsertError } = await supabase
           .from("people_skills")
-          .insert(newSkills.map((skill) => ({ person_id: user.id, skill_id: skill.id })))
+          .insert(newSkills.map((skill_id) => ({ person_id: user.id, skill_id })))
 
         if (skillInsertError) throw new Error(skillInsertError.message)
       }
@@ -241,15 +210,15 @@ export function OnboardingView() {
               <div>
                 <p className="mb-2 text-xs font-bold uppercase tracking-wider text-[#668184]">Department</p>
                 <div className="flex flex-wrap gap-2">
-                  {departments.map((dept) => (
+                  {departmentOptions.map((dept) => (
                     <button
-                      key={dept}
-                      onClick={() => setFormData({ ...formData, department: dept })}
+                      key={dept.id}
+                      onClick={() => setFormData({ ...formData, departmentId: dept.id })}
                       className={`glass-button rounded-full px-4 py-2 text-xs font-semibold transition-all ${
-                        formData.department === dept ? "glass-ink text-white" : "glass-neutral text-[#22393c]"
+                        formData.departmentId === dept.id ? "glass-ink text-white" : "glass-neutral text-[#22393c]"
                       }`}
                     >
-                      {dept}
+                      {dept.name}
                     </button>
                   ))}
                 </div>
@@ -292,15 +261,15 @@ export function OnboardingView() {
               <div>
                 <p className="mb-2 text-xs font-bold uppercase tracking-wider text-[#668184]">Select your Skills</p>
                 <div className="flex flex-wrap gap-2">
-                  {availableSkills.map((skill) => (
+                  {skillOptions.map((skill) => (
                     <button
-                      key={skill}
-                      onClick={() => toggleSelection(skill, "skills")}
+                      key={skill.id}
+                      onClick={() => toggleSelection(skill.id, "skills")}
                       className={`glass-button rounded-full px-4 py-2 text-xs font-semibold transition-all ${
-                        formData.skills.includes(skill) ? "glass-ink text-white" : "glass-neutral text-[#22393c]"
+                        formData.skills.includes(skill.id) ? "glass-ink text-white" : "glass-neutral text-[#22393c]"
                       }`}
                     >
-                      {skill}
+                      {skill.name}
                     </button>
                   ))}
                 </div>

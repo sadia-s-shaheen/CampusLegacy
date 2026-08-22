@@ -1292,16 +1292,18 @@ export function ProjectDetailsView({ projectId }: ProjectDetailsViewProps) {
 
                 <div className="divide-y divide-[#22393c]/5">
                   {teamMembers.map((member) => (
-                    <div key={member.id} className="grid grid-cols-12 items-center gap-4 p-4">
-                      <div className="col-span-4 flex items-center gap-3">
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#8a9a7b] text-xs font-bold text-white">
-                          {getInitials(member.people?.full_name)}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold">{member.people?.full_name || "Unknown"}</p>
-                          <p className="text-[10px] text-[#668184]">{member.people?.role || "Student"}</p>
-                        </div>
+                                      <div key={member.id} className="grid grid-cols-12 items-center gap-4 p-4">
+                                        <div className="col-span-4 flex items-center gap-3">
+                    <Link href={`/profile/${member.people?.id}`} className="flex items-center gap-3 group">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#8a9a7b] text-xs font-bold text-white group-hover:scale-105 transition-transform">
+                        {getInitials(member.people?.full_name)}
                       </div>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold group-hover:text-[#8a9a7b] transition-colors">{member.people?.full_name || "Unknown"}</p>
+                        <p className="text-[10px] text-[#668184]">{member.people?.role || "Student"}</p>
+                      </div>
+                    </Link>
+                  </div>
                       <div className="col-span-4">
                         <span className="rounded-full bg-[#8a9a7b]/20 px-3 py-1 text-xs font-medium">{member.role || "Contributor"}</span>
                       </div>

@@ -3,19 +3,20 @@ import { useState } from "react"
 import { motion } from "framer-motion"
 import { X, Save, Loader2 } from "lucide-react"
 import { supabase } from "@/lib/supabase/client"
+import { useDepartments, useSkills } from "@/lib/hooks/use-profile-options"
 
 const years = ["1st Year", "2nd Year", "3rd Year", "4th Year"]
-const departments = ["Computer Science", "Information Technology", "AI & Data Science", "Electronics", "Mechanical"]
-const availableSkills = ["React", "Next.js", "Python", "Node.js", "Figma", "UI/UX", "Machine Learning", "AWS", "SQL", "Git"]
 const availableInterests = ["Open Source", "Accessibility", "Web3", "AI/ML", "Product Design", "Startups"]
 
 export function EditProfileModal({ onClose, currentProfile, currentSkills }: { onClose: () => void, currentProfile: any, currentSkills: string[] }) {
+  const { options: departmentOptions } = useDepartments()
+  const { options: skillOptions } = useSkills()
   const [loading, setLoading] = useState(false)
   const [fullName, setFullName] = useState(currentProfile?.full_name || "")
   const [bio, setBio] = useState(currentProfile?.bio || "")
   const [year, setYear] = useState(currentProfile?.year ? `${currentProfile.year} Year` : "")
-  const [department, setDepartment] = useState(currentProfile?.department || "")
-  const [selectedSkills, setSelectedSkills] = useState<string[]>(currentSkills || [])
+  const [departmentId, setDepartmentId] = useState(currentProfile?.department_id || "")
+  const [selectedSkills, setSelectedSkills] = useState<string[]>(currentProfile?.skill_ids || [])
   const [selectedInterests, setSelectedInterests] = useState<string[]>(currentProfile?.interests || [])
 
   const toggleSkill = (skill: string) => {
@@ -32,19 +33,6 @@ export function EditProfileModal({ onClose, currentProfile, currentSkills }: { o
 
       // Parse year to integer
       const yearInt = year ? parseInt(year.replace(/\D/g, ""), 10) : null
-      let departmentId: string | null = null
-
-      if (department) {
-        const { data: departmentData, error: departmentError } = await supabase
-          .from("departments")
-          .select("id")
-          .eq("name", department)
-          .maybeSingle()
-
-        if (departmentError) throw new Error("Department lookup failed: " + departmentError.message)
-        departmentId = departmentData?.id || null
-      }
-
       // 1. Update basic profile info (Name, Bio, Year)
       // Note: We removed 'department' and 'skills' from here to prevent schema errors
       const { error: profileError } = await supabase
@@ -54,7 +42,7 @@ export function EditProfileModal({ onClose, currentProfile, currentSkills }: { o
           full_name: fullName,
           bio: bio,
           year: yearInt,
-          department_id: departmentId,
+          department_id: departmentId || null,
           interests: selectedInterests,
         }, { onConflict: "id" })
 
@@ -62,14 +50,6 @@ export function EditProfileModal({ onClose, currentProfile, currentSkills }: { o
 
       // 2. Update Skills via the junction table
       if (selectedSkills.length > 0) {
-        // First, find the UUIDs for the selected skill names
-        const { data: skillData, error: skillFetchError } = await supabase
-          .from("skills")
-          .select("id")
-          .in("name", selectedSkills)
-
-        if (skillFetchError) throw new Error("Skill fetch failed: " + skillFetchError.message)
-
         const { data: existingSkills, error: existingSkillsError } = await supabase
           .from("people_skills")
           .select("skill_id, proficiency, years_experience")
@@ -77,7 +57,7 @@ export function EditProfileModal({ onClose, currentProfile, currentSkills }: { o
 
         if (existingSkillsError) throw new Error("Skills lookup failed: " + existingSkillsError.message)
 
-        const selectedSkillIds = new Set((skillData || []).map(skill => skill.id))
+        const selectedSkillIds = new Set(selectedSkills)
         const removedSkills = (existingSkills || []).filter(skill => !selectedSkillIds.has(skill.skill_id))
 
         for (const skill of removedSkills) {
@@ -91,10 +71,10 @@ export function EditProfileModal({ onClose, currentProfile, currentSkills }: { o
         }
 
         const existingSkillIds = new Set((existingSkills || []).map(skill => skill.skill_id))
-        const newSkills = skillData?.filter(skill => !existingSkillIds.has(skill.id)) || []
+        const newSkills = selectedSkills.filter(skillId => !existingSkillIds.has(skillId))
         const { error: insertError } = await supabase
           .from("people_skills")
-          .insert(newSkills.map(skill => ({ person_id: user.id, skill_id: skill.id })))
+          .insert(newSkills.map(skill_id => ({ person_id: user.id, skill_id })))
 
         if (insertError) throw new Error("Skills update failed: " + insertError.message)
       } else {
@@ -187,17 +167,17 @@ export function EditProfileModal({ onClose, currentProfile, currentSkills }: { o
           <div>
             <label className="text-xs font-bold uppercase tracking-wider text-[#668184] mb-2 block">Department</label>
             <div className="flex flex-wrap gap-2">
-              {departments.map(dept => (
+              {departmentOptions.map(dept => (
                 <button
                   key={dept}
-                  onClick={() => setDepartment(dept)}
+                  onClick={() => setDepartmentId(dept.id)}
                   className={`px-4 py-2 rounded-full text-xs font-semibold transition-all ${
-                    department === dept 
+                    departmentId === dept.id 
                       ? "glass-button glass-ink text-white" 
                       : "glass-button glass-neutral text-[#22393c] dark:text-[#f4f1ea]"
                   }`}
                 >
-                  {dept}
+                  {dept.name}
                 </button>
               ))}
             </div>
@@ -207,17 +187,17 @@ export function EditProfileModal({ onClose, currentProfile, currentSkills }: { o
           <div>
             <label className="text-xs font-bold uppercase tracking-wider text-[#668184] mb-2 block">Skills</label>
             <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto pr-1">
-              {availableSkills.map(skill => (
+              {skillOptions.map(skill => (
                 <button
-                  key={skill}
-                  onClick={() => toggleSkill(skill)}
+                  key={skill.id}
+                  onClick={() => toggleSkill(skill.id)}
                   className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
-                    selectedSkills.includes(skill) 
+                    selectedSkills.includes(skill.id) 
                       ? "glass-button glass-ink text-white" 
                       : "glass-button glass-neutral text-[#22393c] dark:text-[#f4f1ea]"
                   }`}
                 >
-                  {skill}
+                  {skill.name}
                 </button>
               ))}
             </div>
