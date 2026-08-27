@@ -43,6 +43,7 @@ export function useUserProjects(personId: string | null | undefined, limit?: num
       setLoading(false)
       return
     }
+  
     setLoading(true)
     setError(null)
 

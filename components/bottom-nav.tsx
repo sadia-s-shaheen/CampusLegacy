@@ -15,49 +15,28 @@ const navItems = [
 export function BottomNav() {
   const pathname = usePathname()
 
-  // Previously only exact-matched, so a detail route like /projects/123
-  // never lit up the "Projects" tab. Nested routes now count too.
-  const isItemActive = (href: string) => {
-    if (pathname === href) return true
-    if (pathname.startsWith(`${href}/`)) return true
-    return false
-  }
-
   return (
-    <motion.nav
-      initial={{ y: 50, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      transition={{ delay: 0.6, duration: 0.5, ease: "easeOut" }}
-      className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50"
-      aria-label="Primary"
-    >
-      <div className="glass-button glass-neutral flex items-center gap-1 rounded-full px-2 py-2 shadow-lg">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 glass-button glass-neutral border-t border-[#22393c]/10 px-2 pb-[env(safe-area-inset-bottom)] sm:left-1/2 sm:w-full sm:max-w-md sm:-translate-x-1/2 sm:rounded-t-3xl">
+      <div className="flex items-center justify-around py-2">
         {navItems.map((item) => {
-          const isActive = isItemActive(item.href)
+          const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
           return (
-            <Link
-              key={item.label}
-              href={item.href}
-              aria-current={isActive ? "page" : undefined}
-              className={`relative flex flex-col items-center justify-center rounded-full px-4 py-2 transition-all ${
-                isActive ? "bg-[#22393c]/10" : "hover:bg-[#22393c]/5"
-              }`}
-            >
-              <item.icon
-                className={`size-5 ${isActive ? "text-[#22393c]" : "text-[#668184]"}`}
-                strokeWidth={1.8}
-              />
-              <span
-                className={`mt-1 whitespace-nowrap text-[10px] font-medium ${
-                  isActive ? "text-[#22393c]" : "text-[#668184]"
+            <Link key={item.href} href={item.href} className="flex flex-col items-center gap-0.5 px-3 py-1">
+              <motion.div
+                animate={{ scale: isActive ? 1.1 : 1 }}
+                className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors ${
+                  isActive ? "bg-[#22393c] text-white" : "text-[#668184]"
                 }`}
               >
+                <item.icon className="size-4" strokeWidth={isActive ? 2.2 : 1.8} />
+              </motion.div>
+              <span className={`text-[9px] font-semibold transition-colors ${isActive ? "text-[#22393c]" : "text-[#668184]"}`}>
                 {item.label}
               </span>
             </Link>
           )
         })}
       </div>
-    </motion.nav>
+    </nav>
   )
 }

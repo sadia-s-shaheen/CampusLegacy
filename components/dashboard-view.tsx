@@ -53,8 +53,7 @@ export function DashboardView() {
   }, [user])
 
   return (
-    <main className="relative flex min-h-dvh items-center justify-center bg-[#e8e9e8] px-5 py-10 text-[#22393c] sm:px-8">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(255,255,255,.9),transparent_34%),radial-gradient(circle_at_88%_75%,rgba(196,213,211,.55),transparent_34%)]" />
+<main className="relative flex min-h-dvh items-center justify-center bg-[#e8e9e8] px-5 pb-24 pt-10 text-[#22393c] sm:px-8">      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(255,255,255,.9),transparent_34%),radial-gradient(circle_at_88%_75%,rgba(196,213,211,.55),transparent_34%)]" />
       <div className="relative w-full max-w-md">
         <motion.header initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-8 flex items-center justify-between">
           <div>
