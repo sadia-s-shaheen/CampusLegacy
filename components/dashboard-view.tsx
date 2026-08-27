@@ -11,8 +11,12 @@ export function DashboardView() {
   const { user } = useCurrentUser()
   const { projects, loading: projectsLoading } = useUserProjects(user?.id, 3)
   const [userName, setUserName] = useState("there")
+  
+  // Collaboration Hub Counts
+  const [invitationsReceived, setInvitationsReceived] = useState(0)
+  const [joinRequests, setJoinRequests] = useState(0)
   const [invitesSent, setInvitesSent] = useState(0)
-  const [requestsReceived, setRequestsReceived] = useState(0)
+  const [unreadNotifsCount, setUnreadNotifsCount] = useState(0)
   const [hasUnreadNotifs, setHasUnreadNotifs] = useState(false)
   const [loadingCounts, setLoadingCounts] = useState(true)
 
@@ -20,28 +24,45 @@ export function DashboardView() {
     if (!user) return
     const fetchDashboardExtras = async () => {
       try {
-        const [{ data: profile }, { count: invitesCount }, { data: notifs }] = await Promise.all([
-          supabase.from("people").select("full_name").eq("id", user.id).single(),
-          supabase
-            .from("project_invitations")
-            .select("*", { count: "exact", head: true })
-            .eq("invited_by", user.id)
-            .eq("status", "pending"),
-          supabase.from("notifications").select("id").eq("recipient_id", user.id).eq("is_read", false).limit(1),
-        ])
-        if (profile?.full_name) setUserName(profile.full_name)
-        setInvitesSent(invitesCount || 0)
-        setHasUnreadNotifs((notifs?.length || 0) > 0)
-
+        // 1. Get user's projects to check for join requests
         const { data: myProjects } = await supabase.from("projects").select("id").eq("owner_id", user.id)
         const projectIds = (myProjects || []).map((p) => p.id)
+
+        // 2. Fetch all counts in parallel
+        const [
+          { data: profile },
+          { count: receivedCount },
+          { count: sentCount },
+          { count: notifsCount },
+          { data: notifsForBell }
+        ] = await Promise.all([
+          supabase.from("people").select("full_name").eq("id", user.id).single(),
+          // Invitations Received (invitee_id = me)
+          supabase.from("project_invitations").select("*", { count: "exact", head: true }).eq("invitee_id", user.id).eq("status", "pending"),
+          // Invites Sent (invited_by = me)
+          supabase.from("project_invitations").select("*", { count: "exact", head: true }).eq("invited_by", user.id).eq("status", "pending"),
+          // Total Unread Notifications
+          supabase.from("notifications").select("*", { count: "exact", head: true }).eq("recipient_id", user.id).eq("is_read", false),
+          // Check if at least 1 unread notif exists (for the red dot on the bell)
+          supabase.from("notifications").select("id").eq("recipient_id", user.id).eq("is_read", false).limit(1),
+        ])
+
+        if (profile?.full_name) setUserName(profile.full_name)
+        setInvitationsReceived(receivedCount || 0)
+        setInvitesSent(sentCount || 0)
+        setUnreadNotifsCount(notifsCount || 0)
+        setHasUnreadNotifs((notifsForBell?.length || 0) > 0)
+
+        // 3. Fetch join requests for user's projects
         if (projectIds.length > 0) {
-          const { count: teamRequestsCount } = await supabase
+          const { count: joinCount } = await supabase
             .from("team_members")
             .select("*", { count: "exact", head: true })
             .in("project_id", projectIds)
             .eq("status", "requested")
-          setRequestsReceived(teamRequestsCount || 0)
+          setJoinRequests(joinCount || 0)
+        } else {
+          setJoinRequests(0)
         }
       } catch (error) {
         console.error("Error fetching dashboard data:", error)
@@ -53,7 +74,8 @@ export function DashboardView() {
   }, [user])
 
   return (
-<main className="relative flex min-h-dvh items-center justify-center bg-[#e8e9e8] px-5 pb-24 pt-10 text-[#22393c] sm:px-8">      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(255,255,255,.9),transparent_34%),radial-gradient(circle_at_88%_75%,rgba(196,213,211,.55),transparent_34%)]" />
+    <main className="relative flex min-h-dvh items-center justify-center bg-[#e8e9e8] px-5 pb-24 pt-10 text-[#22393c] sm:px-8">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(255,255,255,.9),transparent_34%),radial-gradient(circle_at_88%_75%,rgba(196,213,211,.55),transparent_34%)]" />
       <div className="relative w-full max-w-md">
         <motion.header initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-8 flex items-center justify-between">
           <div>
@@ -141,19 +163,40 @@ export function DashboardView() {
           </div>
           <Link href="/requests">
             <div className="grid grid-cols-2 gap-3 cursor-pointer">
+              {/* Card 1: Invitations Received */}
               <div className="glass-button glass-lilac rounded-3xl p-4 text-center transition-transform hover:-translate-y-0.5">
+                <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-[#22393c]/10">
+                  <span className="text-xl font-bold text-[#22393c]">{loadingCounts ? "\u2014" : invitationsReceived}</span>
+                </div>
+                <p className="text-sm font-semibold text-[#22393c]">Received</p>
+                <p className="mt-1 text-[10px] font-medium text-[#668184]">Invites</p>
+              </div>
+
+              {/* Card 2: Join Requests */}
+              <div className="glass-button glass-peach rounded-3xl p-4 text-center transition-transform hover:-translate-y-0.5">
+                <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-[#22393c]/10">
+                  <span className="text-xl font-bold text-[#22393c]">{loadingCounts ? "\u2014" : joinRequests}</span>
+                </div>
+                <p className="text-sm font-semibold text-[#22393c]">Requests</p>
+                <p className="mt-1 text-[10px] font-medium text-[#668184]">To Join</p>
+              </div>
+
+              {/* Card 3: Invites Sent */}
+              <div className="glass-button glass-aqua rounded-3xl p-4 text-center transition-transform hover:-translate-y-0.5">
                 <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-[#22393c]/10">
                   <span className="text-xl font-bold text-[#22393c]">{loadingCounts ? "\u2014" : invitesSent}</span>
                 </div>
-                <p className="text-sm font-semibold text-[#22393c]">Invites Sent</p>
-                <p className="mt-1 text-[10px] font-medium text-[#668184]">Pending</p>
+                <p className="text-sm font-semibold text-[#22393c]">Sent</p>
+                <p className="mt-1 text-[10px] font-medium text-[#668184]">Invites</p>
               </div>
-              <div className="glass-button glass-peach rounded-3xl p-4 text-center transition-transform hover:-translate-y-0.5">
+
+              {/* Card 4: Unread Notifications */}
+              <div className="glass-button glass-neutral rounded-3xl p-4 text-center transition-transform hover:-translate-y-0.5">
                 <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-[#22393c]/10">
-                  <span className="text-xl font-bold text-[#22393c]">{loadingCounts ? "\u2014" : requestsReceived}</span>
+                  <span className="text-xl font-bold text-[#22393c]">{loadingCounts ? "\u2014" : unreadNotifsCount}</span>
                 </div>
-                <p className="text-sm font-semibold text-[#22393c]">Requests</p>
-                <p className="mt-1 text-[10px] font-medium text-[#668184]">Pending</p>
+                <p className="text-sm font-semibold text-[#22393c]">Alerts</p>
+                <p className="mt-1 text-[10px] font-medium text-[#668184]">Unread</p>
               </div>
             </div>
           </Link>
