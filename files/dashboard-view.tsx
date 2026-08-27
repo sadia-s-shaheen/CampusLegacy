@@ -18,6 +18,7 @@ export function DashboardView() {
 
   useEffect(() => {
     if (!user) return
+
     const fetchDashboardExtras = async () => {
       try {
         const [{ data: profile }, { count: invitesCount }, { data: notifs }] = await Promise.all([
@@ -29,10 +30,16 @@ export function DashboardView() {
             .eq("status", "pending"),
           supabase.from("notifications").select("id").eq("recipient_id", user.id).eq("is_read", false).limit(1),
         ])
+
         if (profile?.full_name) setUserName(profile.full_name)
         setInvitesSent(invitesCount || 0)
         setHasUnreadNotifs((notifs?.length || 0) > 0)
 
+        // Requests received: counted from team_members "requested" status
+        // only. The previous version also summed project_applications
+        // against project_roles for the same projects, which double-counted
+        // any project using both request paths at once. Consolidate on one
+        // request system (team_members) until applications fully replace it.
         const { data: myProjects } = await supabase.from("projects").select("id").eq("owner_id", user.id)
         const projectIds = (myProjects || []).map((p) => p.id)
         if (projectIds.length > 0) {
@@ -49,12 +56,14 @@ export function DashboardView() {
         setLoadingCounts(false)
       }
     }
+
     fetchDashboardExtras()
   }, [user])
 
   return (
     <main className="relative flex min-h-dvh items-center justify-center bg-[#e8e9e8] px-5 py-10 text-[#22393c] sm:px-8">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(255,255,255,.9),transparent_34%),radial-gradient(circle_at_88%_75%,rgba(196,213,211,.55),transparent_34%)]" />
+
       <div className="relative w-full max-w-md">
         <motion.header initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-8 flex items-center justify-between">
           <div>
@@ -95,7 +104,7 @@ export function DashboardView() {
               </Link>
             </div>
           ) : (
-            <div className="flex flex-col gap-3">
+            <div className="space-y-3">
               {projects.map((project) => {
                 const skillNames = project.project_skills?.map((ps: any) => ps.skills.name) || []
                 return (
@@ -140,6 +149,7 @@ export function DashboardView() {
               View All
             </Link>
           </div>
+
           <Link href="/requests">
             <div className="grid grid-cols-2 gap-3 cursor-pointer">
               <div className="glass-button glass-lilac rounded-3xl p-4 text-center transition-transform hover:-translate-y-0.5">
@@ -149,6 +159,7 @@ export function DashboardView() {
                 <p className="text-sm font-semibold text-[#22393c]">Invites Sent</p>
                 <p className="mt-1 text-[10px] font-medium text-[#668184]">Pending</p>
               </div>
+
               <div className="glass-button glass-peach rounded-3xl p-4 text-center transition-transform hover:-translate-y-0.5">
                 <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-[#22393c]/10">
                   <span className="text-xl font-bold text-[#22393c]">{loadingCounts ? "\u2014" : requestsReceived}</span>

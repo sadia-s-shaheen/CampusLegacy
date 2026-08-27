@@ -2,6 +2,7 @@ import { Analytics } from '@vercel/analytics/next'
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import { ThemeProvider } from "@/components/theme-provider"
+import { Toaster } from "sonner" // <-- Add this
 
 
 export const metadata: Metadata = {
@@ -41,6 +42,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
           {children}
+          <Toaster position="top-center" richColors /> {/* <-- Add this */}
         </ThemeProvider>
       </body>
     </html>

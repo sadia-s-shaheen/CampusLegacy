@@ -1,7 +1,7 @@
 "use client"
-import { useMemo, useState, useEffect } from "react"
+import { useMemo, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { FolderGit2, Plus, Filter, Loader2, Check, Bookmark } from "lucide-react"
+import { FolderGit2, Plus, Filter, Loader2, Check } from "lucide-react"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase/client"
 import { useCurrentUser } from "@/lib/hooks/use-current-user"
@@ -14,72 +14,22 @@ const filterOptions = ["All", "Active", "Legacy", "Completed"]
 export function ProjectsView() {
   const { user } = useCurrentUser()
   const { projects, loading, refetch } = useUserProjects(user?.id)
-  
-  // New states for Sub-tabs and Saved Projects
-  const [activeSubTab, setActiveSubTab] = useState<"my" | "saved">("my")
-  const [savedProjects, setSavedProjects] = useState<any[]>([])
-  const [savedLoading, setSavedLoading] = useState(false)
-
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isFilterOpen, setIsFilterOpen] = useState(false)
   const [statusFilter, setStatusFilter] = useState("All")
 
-  // Fetch Saved Projects
-  useEffect(() => {
-    const fetchSaved = async () => {
-      if (!user) return
-      setSavedLoading(true)
-      const { data } = await supabase
-        .from("saved_projects")
-        .select(`
-          project_id, 
-          projects (
-            id, 
-            title, 
-            description, 
-            status, 
-            project_skills ( skills ( name ) ),
-            team_members ( id )
-          )
-        `)
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-
-      if (data) {
-        // Map the data to match the structure expected by the project cards
-        const mapped = data.map((d: any) => ({
-          ...d.projects,
-          team_members: d.projects.team_members || []
-        }))
-        setSavedProjects(mapped)
-      }
-      setSavedLoading(false)
-    }
-    fetchSaved()
-  }, [user])
-
-  // Filter logic for "My Projects"
-  const filteredMyProjects = useMemo(() => {
+  const filteredProjects = useMemo(() => {
     if (statusFilter === "All") return projects
     return projects.filter((p) => (p.status || "active").toLowerCase() === statusFilter.toLowerCase())
   }, [projects, statusFilter])
 
-  // Filter logic for "Saved Projects"
-  const filteredSavedProjects = useMemo(() => {
-    if (statusFilter === "All") return savedProjects
-    return savedProjects.filter((p) => (p.status || "active").toLowerCase() === statusFilter.toLowerCase())
-  }, [savedProjects, statusFilter])
-
-  const currentProjects = activeSubTab === "my" ? filteredMyProjects : filteredSavedProjects
-  const isCurrentlyLoading = activeSubTab === "my" ? loading : savedLoading
-
   return (
     <main className="relative min-h-dvh bg-[#e8e9e8] px-5 pb-32 pt-10 text-[#22393c] sm:px-8">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(255,255,255,.9),transparent_34%),radial-gradient(circle_at_88%_75%,rgba(196,213,211,.55),transparent_34%)]" />
-      
+
       <div className="relative mx-auto w-full max-w-md">
         <motion.header initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-6 flex items-center justify-between">
-          <h1 className="text-2xl font-semibold tracking-tight">Projects</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">My Projects</h1>
           <div className="relative">
             <button
               onClick={() => setIsFilterOpen((v) => !v)}
@@ -111,58 +61,28 @@ export function ProjectsView() {
           </div>
         </motion.header>
 
-        {/* Sub-Tabs: My Projects vs Saved Projects */}
-        <div className="flex gap-2 mb-6 glass-button glass-neutral rounded-full p-1">
-          <button
-            onClick={() => setActiveSubTab("my")}
-            className={`flex-1 rounded-full px-4 py-2 text-xs font-semibold transition-all ${
-              activeSubTab === "my" ? "glass-ink text-white" : "text-[#668184]"
-            }`}
-          >
-            My Projects
-          </button>
-          <button
-            onClick={() => setActiveSubTab("saved")}
-            className={`flex-1 rounded-full px-4 py-2 text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${
-              activeSubTab === "saved" ? "glass-ink text-white" : "text-[#668184]"
-            }`}
-          >
-            Saved <Bookmark className="size-3" />
-          </button>
-        </div>
-
-        {isCurrentlyLoading ? (
+        {loading ? (
           <div className="flex justify-center py-20">
             <Loader2 className="size-10 animate-spin text-[#668184]" />
           </div>
-        ) : currentProjects.length === 0 ? (
+        ) : filteredProjects.length === 0 ? (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass-button glass-neutral rounded-3xl p-8 text-center">
-            {activeSubTab === "my" ? (
-              <>
-                <FolderGit2 className="mx-auto size-12 text-[#668184] mb-3" strokeWidth={1.5} />
-                <p className="text-sm font-medium text-[#22393c] mb-1">
-                  {statusFilter === "All" ? "You haven't joined any projects yet." : `No ${statusFilter.toLowerCase()} projects.`}
-                </p>
-                <p className="text-xs text-[#668184] mb-4">Start building your legacy by creating or joining a project.</p>
-                <button onClick={() => setIsModalOpen(true)} className="glass-button glass-ink rounded-full px-5 py-2 text-xs font-semibold text-white transition-transform hover:scale-105">
-                  Create Project
-                </button>
-              </>
-            ) : (
-              <>
-                <Bookmark className="mx-auto size-12 text-[#668184] mb-3" strokeWidth={1.5} />
-                <p className="text-sm font-medium text-[#22393c] mb-1">No saved projects yet.</p>
-                <p className="text-xs text-[#668184] mb-4">Browse projects and tap the bookmark icon to save ones you're interested in.</p>
-              </>
-            )}
+            <FolderGit2 className="mx-auto size-12 text-[#668184] mb-3" strokeWidth={1.5} />
+            <p className="text-sm font-medium text-[#22393c] mb-1">
+              {statusFilter === "All" ? "You haven't joined any projects yet." : `No ${statusFilter.toLowerCase()} projects.`}
+            </p>
+            <p className="text-xs text-[#668184] mb-4">Start building your legacy by creating or joining a project.</p>
+            <button onClick={() => setIsModalOpen(true)} className="glass-button glass-ink rounded-full px-5 py-2 text-xs font-semibold text-white transition-transform hover:scale-105">
+              Create Project
+            </button>
           </motion.div>
         ) : (
-          // FIX: Changed space-y-3 to flex flex-col gap-3 to ensure proper spacing between cards
-          <div className="flex flex-col gap-3">
-            {currentProjects.map((project, index) => {
+          <div className="space-y-3">
+            {filteredProjects.map((project, index) => {
               const skillNames = project.project_skills?.map((ps: any) => ps.skills.name) || []
               const teamCount = project.team_members?.length || 0
               const tone = tones[index % tones.length]
+
               return (
                 <Link href={`/projects/${project.id}`} key={project.id}>
                   <motion.div
@@ -204,18 +124,15 @@ export function ProjectsView() {
         )}
       </div>
 
-      {/* Floating Action Button (Only show on "My Projects" tab) */}
-      {activeSubTab === "my" && (
-        <motion.button
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          transition={{ type: "spring", stiffness: 300, delay: 0.5 }}
-          onClick={() => setIsModalOpen(true)}
-          className="fixed bottom-24 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-[#22393c] text-white shadow-lg transition-transform hover:scale-110 sm:right-[calc(50%-220px+1.5rem)]"
-        >
-          <Plus className="size-6" strokeWidth={2} />
-        </motion.button>
-      )}
+      <motion.button
+        initial={{ scale: 0 }}
+        animate={{ scale: 1 }}
+        transition={{ type: "spring", stiffness: 300, delay: 0.5 }}
+        onClick={() => setIsModalOpen(true)}
+        className="fixed bottom-24 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-[#22393c] text-white shadow-lg transition-transform hover:scale-110 sm:right-[calc(50%-220px+1.5rem)]"
+      >
+        <Plus className="size-6" strokeWidth={2} />
+      </motion.button>
 
       <AnimatePresence>
         {isModalOpen && (
