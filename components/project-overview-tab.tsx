@@ -45,6 +45,16 @@ export function ProjectOverviewTab({
     ]).filter(Boolean)
   )
 
+  // ✅ ROBUST LINEAGE CALCULATION
+  const parentLineages = lineages.filter((l: any) => l.child_project_id === project.id)
+  const parentIds = parentLineages.map((l: any) => l.parent_project_id)
+  
+  const siblingLineages = lineages.filter(
+    (l: any) => parentIds.includes(l.parent_project_id) && l.child_project_id !== project.id
+  )
+  
+  const childLineages = lineages.filter((l: any) => l.parent_project_id === project.id)
+
   return (
     <>
       {/* Project Header */}
@@ -148,36 +158,53 @@ export function ProjectOverviewTab({
         </div>
       </section>
 
-      {/* Project Lineage */}
+      {/* ✅ PROJECT LINEAGE (Using pre-calculated variables) */}
       {(lineages.length > 0 || isOwner) && (
         <section>
           <h3 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-[#668184]">
             <GitBranch className="size-4 text-[#8a9a7b]" /> Project Lineage
           </h3>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            {/* Parents */}
             <div className="glass-button glass-lilac rounded-2xl p-4">
-              <h4 className="mb-2 text-xs font-bold text-[#668184]">Parents ({lineages.filter((l: any) => l.child_project_id === project.id).length})</h4>
-              {lineages.filter((l: any) => l.child_project_id === project.id).length > 0 ? (
-                lineages.filter((l: any) => l.child_project_id === project.id).map((l: any) => (
-                  <Link key={l.parent?.id} href={`/projects/${l.parent?.id}`} className="mb-1 block rounded bg-white/50 p-2 text-xs transition-colors hover:bg-white">{l.parent?.title}</Link>
+              <h4 className="mb-2 text-xs font-bold text-[#668184]">Parents ({parentLineages.length})</h4>
+              {parentLineages.length > 0 ? (
+                parentLineages.map((l: any) => (
+                  <Link key={l.parent?.id} href={`/projects/${l.parent?.id}`} className="mb-1 block rounded bg-white/50 p-2 text-xs transition-colors hover:bg-white">
+                    {l.parent?.title}
+                  </Link>
                 ))
-              ) : <p className="text-xs italic text-[#668184]">None</p>}
+              ) : (
+                <p className="text-xs italic text-[#668184]">None</p>
+              )}
             </div>
+
+            {/* ✅ Siblings */}
             <div className="glass-button glass-peach rounded-2xl p-4">
-              <h4 className="mb-2 text-xs font-bold text-[#668184]">Siblings ({lineages.filter((l: any) => l.child_project_id !== project.id && l.parent_project_id === lineages.find((p: any) => p.child_project_id === project.id)?.parent_project_id).length})</h4>
-              {lineages.filter((l: any) => l.child_project_id !== project.id && l.parent_project_id === lineages.find((p: any) => p.child_project_id === project.id)?.parent_project_id).length > 0 ? (
-                lineages.filter((l: any) => l.child_project_id !== project.id && l.parent_project_id === lineages.find((p: any) => p.child_project_id === project.id)?.parent_project_id).map((l: any) => (
-                  <Link key={l.child?.id} href={`/projects/${l.child?.id}`} className="mb-1 block rounded bg-white/50 p-2 text-xs transition-colors hover:bg-white">{l.child?.title}</Link>
+              <h4 className="mb-2 text-xs font-bold text-[#668184]">Siblings ({siblingLineages.length})</h4>
+              {siblingLineages.length > 0 ? (
+                siblingLineages.map((l: any) => (
+                  <Link key={l.child?.id} href={`/projects/${l.child?.id}`} className="mb-1 block rounded bg-white/50 p-2 text-xs transition-colors hover:bg-white">
+                    {l.child?.title}
+                  </Link>
                 ))
-              ) : <p className="text-xs italic text-[#668184]">None</p>}
+              ) : (
+                <p className="text-xs italic text-[#668184]">None</p>
+              )}
             </div>
+
+            {/* Children */}
             <div className="glass-button glass-aqua rounded-2xl p-4">
-              <h4 className="mb-2 text-xs font-bold text-[#668184]">Children ({lineages.filter((l: any) => l.parent_project_id === project.id).length})</h4>
-              {lineages.filter((l: any) => l.parent_project_id === project.id).length > 0 ? (
-                lineages.filter((l: any) => l.parent_project_id === project.id).map((l: any) => (
-                  <Link key={l.child?.id} href={`/projects/${l.child?.id}`} className="mb-1 block rounded bg-white/50 p-2 text-xs transition-colors hover:bg-white">{l.child?.title}</Link>
+              <h4 className="mb-2 text-xs font-bold text-[#668184]">Children ({childLineages.length})</h4>
+              {childLineages.length > 0 ? (
+                childLineages.map((l: any) => (
+                  <Link key={l.child?.id} href={`/projects/${l.child?.id}`} className="mb-1 block rounded bg-white/50 p-2 text-xs transition-colors hover:bg-white">
+                    {l.child?.title}
+                  </Link>
                 ))
-              ) : <p className="mb-2 text-xs italic text-[#668184]">None</p>}
+              ) : (
+                <p className="mb-2 text-xs italic text-[#668184]">None</p>
+              )}
               {isOwner && (
                 <button onClick={onShowCreateChild} className="mt-2 flex w-full items-center justify-center gap-1 rounded border border-dashed border-[#8a9a7b] p-2 text-xs font-bold text-[#8a9a7b] transition-colors hover:bg-[#8a9a7b]/10">
                   <Plus className="size-3" /> Create Child Project

@@ -9,6 +9,8 @@ import {
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase/client"
+import { ProjectTasksTab } from "@/components/project-tasks-tab"
+import { ProjectAITab } from "@/components/project-ai-tab"
 
 type ProjectDetailsViewProps = { projectId: string }
 
@@ -93,7 +95,6 @@ type Invitation = {
 
 type ProjectSkill = { importance: string | null; skills?: { id: string; name: string } | null }
 type ProjectTool = { tools?: { name: string; website_url: string | null } | null }
-type LineageNode = { id: string; title: string; status: string | null }
 
 function getInitials(name?: string | null) {
   if (!name) return "?"
@@ -355,9 +356,11 @@ function ApplyModal({ role, isOpen, onClose, onSuccess }: { role: OpenRole | nul
   )
 }
 
-function AIExtensionsModal({ projectId, isOpen, onClose }: { projectId: string; isOpen: boolean; onClose: () => void }) {
+// ✅ UPDATED: Accepts onAdopt prop to handle creation and redirection
+function AIExtensionsModal({ projectId, isOpen, onClose, onAdopt }: { projectId: string; isOpen: boolean; onClose: () => void; onAdopt: (ideaId: string) => void }) {
   const [extensions, setExtensions] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
+  
   useEffect(() => {
     if (!isOpen) return
     const fetchExtensions = async () => {
@@ -368,21 +371,49 @@ function AIExtensionsModal({ projectId, isOpen, onClose }: { projectId: string; 
     }
     fetchExtensions()
   }, [isOpen, projectId])
-  const handleAdoptExtension = async (ideaId: string) => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { alert("Please sign in first."); return }
-    const { data: newProject, error } = await supabase.from("projects").insert({ title: "New Extension Project", description: `Created from AI recommendation ${ideaId}`, owner_id: user.id, status: "active", visibility: "public" }).select("id").single()
-    if (error || !newProject) { alert(error?.message || "Unable to create project."); return }
-    await supabase.from("project_lineages").insert({ parent_project_id: projectId, child_project_id: newProject.id, relationship_type: "extension" })
-    alert("Extension project created"); onClose()
-  }
+
   if (!isOpen) return null
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
       <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="glass-button glass-neutral max-h-[80vh] w-full max-w-2xl overflow-y-auto rounded-3xl p-6">
-        <div className="mb-6 flex items-center justify-between"><div className="flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#8a9a7b] text-white"><Brain className="size-5" /></div><h3 className="text-xl font-bold text-[#22393c]">AI Recommended Extensions</h3></div><button onClick={onClose} className="rounded-full p-2 hover:bg-[#22393c]/10"><X className="size-5" /></button></div>
-        {loading ? (<div className="flex justify-center py-10"><Loader2 className="size-8 animate-spin text-[#668184]" /></div>) : extensions.length === 0 ? (<div className="py-10 text-center"><Brain className="mx-auto mb-3 size-12 text-[#668184]" /><p className="text-sm text-[#668184]">No AI extensions generated yet.</p></div>) : (
-          <div className="space-y-4">{extensions.map((extension) => (<div key={extension.id} className="glass-button glass-aqua rounded-2xl p-4"><div className="flex items-start gap-3"><Sparkles className="mt-1 size-5 shrink-0 text-[#8a9a7b]" /><div className="flex-1"><h4 className="mb-1 text-base font-bold text-[#22393c]">{extension.title}</h4><p className="mb-2 text-sm text-[#22393c]/80">{extension.description}</p><div className="mb-3 flex items-center gap-2 text-xs text-[#668184]">{extension.domain && <span className="rounded-full bg-white/60 px-2 py-1">{extension.domain}</span>}{extension.difficulty && <span className="rounded-full bg-white/60 px-2 py-1 capitalize">{extension.difficulty}</span>}</div>{extension.ai_reason && <p className="mb-3 text-xs italic text-[#668184]">💡 {extension.ai_reason}</p>}<button onClick={() => handleAdoptExtension(extension.id)} className="rounded-full bg-[#22393c] px-4 py-2 text-xs font-semibold text-white transition-transform hover:scale-105">Adopt This Idea</button></div></div></div>))}</div>
+        <div className="mb-6 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#8a9a7b] text-white">
+              <Brain className="size-5" />
+            </div>
+            <h3 className="text-xl font-bold text-[#22393c]">AI Recommended Extensions</h3>
+          </div>
+          <button onClick={onClose} className="rounded-full p-2 hover:bg-[#22393c]/10"><X className="size-5" /></button>
+        </div>
+        {loading ? (
+          <div className="flex justify-center py-10"><Loader2 className="size-8 animate-spin text-[#668184]" /></div>
+        ) : extensions.length === 0 ? (
+          <div className="py-10 text-center">
+            <Brain className="mx-auto mb-3 size-12 text-[#668184]" />
+            <p className="text-sm text-[#668184]">No AI extensions generated yet.</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {extensions.map((extension) => (
+              <div key={extension.id} className="glass-button glass-aqua rounded-2xl p-4">
+                <div className="flex items-start gap-3">
+                  <Sparkles className="mt-1 size-5 shrink-0 text-[#8a9a7b]" />
+                  <div className="flex-1">
+                    <h4 className="mb-1 text-base font-bold text-[#22393c]">{extension.title}</h4>
+                    <p className="mb-2 text-sm text-[#22393c]/80">{extension.description}</p>
+                    <div className="mb-3 flex items-center gap-2 text-xs text-[#668184]">
+                      {extension.domain && <span className="rounded-full bg-white/60 px-2 py-1">{extension.domain}</span>}
+                      {extension.difficulty && <span className="rounded-full bg-white/60 px-2 py-1 capitalize">{extension.difficulty}</span>}
+                    </div>
+                    {extension.ai_reason && <p className="mb-3 text-xs italic text-[#668184]">💡 {extension.ai_reason}</p>}
+                    <button onClick={() => onAdopt(extension.id)} className="rounded-full bg-[#22393c] px-4 py-2 text-xs font-semibold text-white transition-transform hover:scale-105">
+                      Adopt This Idea
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         )}
       </motion.div>
     </div>
@@ -394,8 +425,6 @@ function AIExtensionsModal({ projectId, isOpen, onClose }: { projectId: string; 
 ========================================================= */
 export function ProjectDetailsView({ projectId }: ProjectDetailsViewProps) {
   const router = useRouter()
-  const [isSaved, setIsSaved] = useState(false)
-  const [saveLoading, setSaveLoading] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   
@@ -409,6 +438,7 @@ export function ProjectDetailsView({ projectId }: ProjectDetailsViewProps) {
   const [lineages, setLineages] = useState<any[]>([])
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [recommendedTeammates, setRecommendedTeammates] = useState<any[]>([])
+  const [teamAvgTransactivity, setTeamAvgTransactivity] = useState(0)
   const [hasPendingRequest, setHasPendingRequest] = useState(false)
 
   const [showAIExtensions, setShowAIExtensions] = useState(false)
@@ -419,8 +449,60 @@ export function ProjectDetailsView({ projectId }: ProjectDetailsViewProps) {
   const [showAddLink, setShowAddLink] = useState<LinkType | null>(null)
   const [showCreateChild, setShowCreateChild] = useState(false)
   const [statusMenuOpen, setStatusMenuOpen] = useState(false)
-  const [activeTab, setActiveTab] = useState<"overview" | "team" | "ai">("overview")
+  const [activeTab, setActiveTab] = useState<"overview" | "team" | "tasks" | "ai">("overview")
   const [refreshing, setRefreshing] = useState(false)
+
+  // ✅ NEW: Centralized Adopt Extension Handler
+  const handleAdoptExtension = async (ideaId: string) => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { alert("Please sign in first."); return }
+    
+    // 1. Fetch the actual extension idea details
+    const { data: idea, error: ideaError } = await supabase
+      .from("project_ideas")
+      .select("title, description, domain, difficulty, ai_reason")
+      .eq("id", ideaId)
+      .single()
+    
+    if (ideaError || !idea) {
+      alert(ideaError?.message || "Unable to load extension details.")
+      return
+    }
+    
+    // 2. Create the new project with the idea's actual title and description
+    const { data: newProject, error } = await supabase
+      .from("projects")
+      .insert({ 
+        title: idea.title,
+        description: idea.description,
+        owner_id: user.id, 
+        status: "active", 
+        visibility: "public",
+        department_id: project?.department_id || null
+      })
+      .select("id")
+      .single()
+    
+    if (error || !newProject) { 
+      alert(error?.message || "Unable to create project.")
+      return 
+    }
+    
+    // 3. Create the lineage relationship
+    await supabase
+      .from("project_lineages")
+      .insert({ 
+        parent_project_id: projectId, 
+        child_project_id: newProject.id, 
+        relationship_type: "extension" 
+      })
+    
+    alert(`Extension project "${idea.title}" created successfully!`)
+    
+    // 4. Close modal and redirect to the new project
+    setShowAIExtensions(false)
+    router.push(`/projects/${newProject.id}`)
+  }
 
   const fetchData = async () => {
     if (!projectId) return
@@ -451,16 +533,59 @@ export function ProjectDetailsView({ projectId }: ProjectDetailsViewProps) {
       const { data: toolsData } = await supabase.from("project_tools").select(`tools(name, website_url)`).eq("project_id", projectId)
       if (toolsData) setTools(toolsData)
 
-      const { data: lineageData } = await supabase.from("project_lineages").select(`parent_project_id, child_project_id, relationship_type, parent:parent_project_id(id, title, status), child:child_project_id(id, title, status)`).or(`parent_project_id.eq.${projectId},child_project_id.eq.${projectId}`)
-      if (lineageData) setLineages(lineageData)
+      // ✅ FIX: 3-Step Lineage Fetch to properly get Parents, Siblings, and Children
+      // Step 1: Get direct parents
+      const { data: parentLineages } = await supabase
+        .from("project_lineages")
+        .select(`id, parent_project_id, child_project_id, relationship_type, parent:parent_project_id(id, title, status)`)
+        .eq("child_project_id", projectId)
 
-      const teamSkillIds = new Set(membersData?.flatMap((m: any) => [...(m.people?.people_skills?.map((ps: any) => ps.skills?.id) || []), ...(m.covered_skill_ids || [])]).filter(Boolean) || [])
-      const missingSkillIds = skillsData?.filter((s: any) => s.importance === "required" && !teamSkillIds.has(s.skills?.id)).map((s: any) => s.skills?.id) || []
-      if (missingSkillIds.length > 0) {
-        const { data: recs } = await supabase.from("people_skills").select("person_id, people(id, full_name, role), skills(name)").in("skill_id", missingSkillIds).limit(4)
-        const uniqueRecs = Array.from(new Map(recs?.map((r: any) => [r.people?.id, r]) || []).values())
-        setRecommendedTeammates(uniqueRecs)
-      } else { setRecommendedTeammates([]) }
+      // Step 2: Get parent IDs
+      const parentIds = [
+        ...new Set(
+          (parentLineages || [])
+            .map((l: any) => l.parent_project_id)
+            .filter(Boolean)
+        ),
+      ]
+
+      // Step 3: Get siblings (other children of those parents)
+      let siblingLineages: any[] = []
+      if (parentIds.length > 0) {
+        const { data: siblings } = await supabase
+          .from("project_lineages")
+          .select(`id, parent_project_id, child_project_id, relationship_type, child:child_project_id(id, title, status)`)
+          .in("parent_project_id", parentIds)
+          .neq("child_project_id", projectId)
+        siblingLineages = siblings || []
+      }
+
+      // Step 4: Get children
+      const { data: childLineages } = await supabase
+        .from("project_lineages")
+        .select(`id, parent_project_id, child_project_id, relationship_type, child:child_project_id(id, title, status)`)
+        .eq("parent_project_id", projectId)
+
+      // Combine them for the UI
+      setLineages([
+        ...(parentLineages || []),
+        ...siblingLineages,
+        ...(childLineages || []),
+      ])
+
+      try {
+        const recResponse = await fetch("/api/recommend-teammates", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ projectId }),
+        })
+        const recData = await recResponse.json()
+        setRecommendedTeammates(recData.recommendations || [])
+        setTeamAvgTransactivity(recData.team_avg_transactivity || 0)
+      } catch (recError) {
+        console.error("⚠️ Recommendation engine failed:", recError)
+        setRecommendedTeammates([])
+      }
 
       if (user) {
         try {
@@ -477,30 +602,11 @@ export function ProjectDetailsView({ projectId }: ProjectDetailsViewProps) {
     }
   }
 
+
   useEffect(() => {
     const load = async () => { setLoading(true); await fetchData(); setLoading(false) }
     load()
   }, [projectId])
-
-  // Check if the current user has saved this project
-  useEffect(() => {
-    const checkIfSaved = async () => {
-      if (!currentUser?.id || !project) return
-      const isOwnerCheck = currentUser.id === project.owner_id
-      const isTeamMemberCheck = teamMembers.some((member: any) => member.person_id === currentUser.id && member.status === "active")
-      
-      if (isOwnerCheck || isTeamMemberCheck) return
-      
-      const { data } = await supabase
-        .from("saved_projects")
-        .select("id")
-        .eq("user_id", currentUser.id)
-        .eq("project_id", projectId)
-        .maybeSingle()
-      if (data) setIsSaved(true)
-    }
-    checkIfSaved()
-  }, [currentUser?.id, project?.owner_id, teamMembers, projectId])
 
   const refreshData = async () => { setRefreshing(true); await fetchData(); setRefreshing(false) }
 
@@ -510,37 +616,6 @@ export function ProjectDetailsView({ projectId }: ProjectDetailsViewProps) {
     const { error: deleteError } = await supabase.from("projects").delete().eq("id", project.id)
     if (deleteError) { alert(`Unable to delete project: ${deleteError.message}`); return }
     router.push("/projects")
-  }
-
-  const handleToggleSave = async () => {
-    if (!currentUser?.id) {
-      alert("Please log in to save projects.")
-      return
-    }
-    setSaveLoading(true)
-    try {
-      if (isSaved) {
-        const { error } = await supabase
-          .from("saved_projects")
-          .delete()
-          .eq("user_id", currentUser.id)
-          .eq("project_id", projectId)
-        if (error) throw error
-        setIsSaved(false)
-        alert("Project removed from saved")
-      } else {
-        const { error } = await supabase
-          .from("saved_projects")
-          .insert({ user_id: currentUser.id, project_id: projectId })
-        if (error) throw error
-        setIsSaved(true)
-        alert("Project saved!")
-      }
-    } catch (err: any) {
-      alert(err?.message || "Couldn't update saved status.")
-    } finally {
-      setSaveLoading(false)
-    }
   }
 
   const handleRequestToJoin = async () => {
@@ -601,6 +676,10 @@ export function ProjectDetailsView({ projectId }: ProjectDetailsViewProps) {
     refreshData()
   }
 
+  const handleRemoveRecommendation = (userId: string) => {
+    setRecommendedTeammates(prev => prev.filter(r => r.user_id !== userId))
+  }
+
   if (loading) return <div className="flex min-h-dvh items-center justify-center bg-[#e8e9e8]"><Loader2 className="size-10 animate-spin text-[#668184]" /></div>
   if (error || !project) return <div className="flex min-h-dvh items-center justify-center bg-[#e8e9e8] text-[#22393c]"><div className="text-center"><p className="mb-4 text-lg font-semibold">Project not found.</p><button onClick={() => router.push("/projects")} className="rounded-full bg-[#22393c] px-5 py-2 text-sm font-semibold text-white">Back to Projects</button></div></div>
 
@@ -610,7 +689,6 @@ export function ProjectDetailsView({ projectId }: ProjectDetailsViewProps) {
   const canRequestToJoin = !isOwner && !isTeamMember && !hasPendingRequest && !teamIsFull
   const myPendingInvitations = invitations.filter((inv) => inv.invitee_id === currentUser?.id)
 
-  // Calculate lineage nodes
   const parentNodes = lineages.filter((l: any) => l.child_project_id === projectId).map((l: any) => l.parent).filter(Boolean)
   const childNodes = lineages.filter((l: any) => l.parent_project_id === projectId).map((l: any) => l.child).filter(Boolean)
   const siblingNodes = parentNodes.length > 0 
@@ -621,7 +699,6 @@ export function ProjectDetailsView({ projectId }: ProjectDetailsViewProps) {
     <main className="relative min-h-dvh bg-[#e8e9e8] pb-32 text-[#22393c]">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(255,255,255,.9),transparent_34%),radial-gradient(circle_at_88%_75%,rgba(196,213,211,.55),transparent_34%)]" />
 
-      {/* Header (Restored back button and title) */}
       <header className="sticky top-0 z-20 flex items-center justify-between glass-button glass-neutral px-5 py-4">
         <button onClick={() => router.back()} className="flex h-9 w-9 items-center justify-center rounded-full bg-[#22393c]/10 text-[#22393c]">
           <ArrowLeft className="size-4" />
@@ -635,21 +712,6 @@ export function ProjectDetailsView({ projectId }: ProjectDetailsViewProps) {
               <MessageSquare className="size-4" />
             </button>
           </Link>
-          
-          {/* Save Button - only show for non-owners and non-team-members */}
-          {!isOwner && !isTeamMember && currentUser && (
-            <button
-              onClick={handleToggleSave}
-              disabled={saveLoading}
-              className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors ${
-                isSaved ? "bg-[#8a9a7b] text-white" : "bg-[#22393c]/10 text-[#22393c]"
-              }`}
-              title={isSaved ? "Remove from saved" : "Save project"}
-            >
-              {saveLoading ? <Loader2 className="size-4 animate-spin" /> : <Bookmark className="size-4" fill={isSaved ? "currentColor" : "none"} />}
-            </button>
-          )}
-          
           {isOwner && (
             <>
               <button onClick={() => router.push(`/projects/${project.id}/edit`)} className="flex h-8 w-8 items-center justify-center rounded-full bg-[#8a9a7b]/20 text-[#8a9a7b]" aria-label="Edit project">
@@ -663,11 +725,11 @@ export function ProjectDetailsView({ projectId }: ProjectDetailsViewProps) {
         </div>
       </header>
 
-      {/* Tabs */}
       <div className="sticky top-[73px] z-10 mx-5 mt-4 flex items-center rounded-full p-1 glass-button glass-neutral">
-        {(["overview", "team", "ai"] as const).map((value) => (
+        {(["overview", "team", "tasks", "ai"] as const).map((value) => (
           <button key={value} onClick={() => setActiveTab(value)} className={`flex-1 rounded-full px-4 py-2 text-xs font-semibold transition-all ${activeTab === value ? "glass-ink text-white" : "text-[#668184]"}`}>
             {value === "ai" && <Brain className="mr-1 inline size-3" />}
+            {value === "tasks" && <CheckCircle2 className="mr-1 inline size-3" />}
             {value.charAt(0).toUpperCase() + value.slice(1)}
           </button>
         ))}
@@ -676,7 +738,6 @@ export function ProjectDetailsView({ projectId }: ProjectDetailsViewProps) {
       <div className="relative mx-auto w-full max-w-2xl space-y-8 px-5 pb-40 pt-6">
         {activeTab === "overview" && (
           <>
-            {/* Project Header & Meta */}
             <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass-button glass-aqua rounded-3xl p-6">
               <div className="flex gap-4">
                 <div className="h-32 w-32 shrink-0 overflow-hidden rounded-2xl bg-gradient-to-br from-[#8a9a7b] to-[#22393c]">
@@ -725,7 +786,6 @@ export function ProjectDetailsView({ projectId }: ProjectDetailsViewProps) {
               </div>
             </motion.section>
 
-            {/* Contextual Project Actions (Replaces Bottom Bar) */}
             {!isOwner && (
               <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass-button glass-neutral rounded-3xl p-4">
                 <div className="flex flex-col gap-3 sm:flex-row">
@@ -755,7 +815,6 @@ export function ProjectDetailsView({ projectId }: ProjectDetailsViewProps) {
               </motion.section>
             )}
 
-            {/* Team Preview */}
             <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
               <div className="mb-4 flex items-center justify-between">
                 <h3 className="flex items-center gap-2 text-lg font-semibold"><Users className="size-5 text-[#8a9a7b]" /> Team Composition</h3>
@@ -769,7 +828,6 @@ export function ProjectDetailsView({ projectId }: ProjectDetailsViewProps) {
               </div>
             </motion.section>
 
-            {/* Skills & Tools */}
             <section>
               <h3 className="mb-3 text-sm font-bold uppercase tracking-wider text-[#668184]">Skills & Tools</h3>
               <div className="glass-button glass-neutral flex flex-wrap gap-2 rounded-3xl p-4">
@@ -783,7 +841,6 @@ export function ProjectDetailsView({ projectId }: ProjectDetailsViewProps) {
               </div>
             </section>
 
-            {/* Project Lineage */}
             {(parentNodes.length > 0 || childNodes.length > 0 || siblingNodes.length > 0 || isOwner) && (
               <section>
                 <h3 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-[#668184]"><GitBranch className="size-4 text-[#8a9a7b]" /> Project Lineage</h3>
@@ -804,31 +861,9 @@ export function ProjectDetailsView({ projectId }: ProjectDetailsViewProps) {
                 </div>
               </section>
             )}
-
-            {/* AI Recommended Teammates */}
-            {recommendedTeammates.length > 0 && (
-              <section>
-                <h3 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-[#668184]"><Brain className="size-4 text-[#8a9a7b]" /> AI Recommended Teammates</h3>
-                <div className="glass-button glass-peach space-y-3 rounded-3xl p-4">
-                  <p className="mb-2 text-xs text-[#22393c]/80">Based on missing skills, we recommend inviting:</p>
-                  {recommendedTeammates.map((rec: any, idx: number) => (
-                    <div key={idx} className="flex items-center justify-between rounded-2xl bg-white/40 p-3">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#22393c]/10 text-xs font-bold">{getInitials(rec.people?.full_name)}</div>
-                        <div><p className="text-sm font-semibold">{rec.people?.full_name}</p><p className="text-[10px] text-[#668184]">Has: <span className="font-medium text-[#22393c]">{rec.skills?.name}</span></p></div>
-                      </div>
-                      <Link href={`/profile/${rec.people?.id}`}><button className="rounded-full bg-[#22393c] px-3 py-1.5 text-[10px] font-bold text-white transition-transform hover:scale-105">View Profile</button></Link>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            )}
           </>
         )}
 
-        {/* =====================================================
-            TAB 2: TEAM
-        ====================================================== */}
         {activeTab === "team" && (
           <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
             <p className="mb-6 text-sm text-[#668184]">Build your team around the skills your project needs.</p>
@@ -938,34 +973,40 @@ export function ProjectDetailsView({ projectId }: ProjectDetailsViewProps) {
         )}
 
         {/* =====================================================
-            TAB 3: AI
+            TAB 3: TASKS
+        ====================================================== */}
+        {activeTab === "tasks" && currentUser && (
+          <ProjectTasksTab
+            projectId={projectId}
+            currentUserId={currentUser.id}
+            isOwner={isOwner}
+            teamMembers={teamMembers}
+          />
+        )}
+
+        {/* =====================================================
+            TAB 4: AI
         ====================================================== */}
         {activeTab === "ai" && (
-          <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-            <div className="mb-4 flex items-center gap-2"><Brain className="size-5 text-[#8a9a7b]" /><h3 className="text-lg font-semibold">AI Recommendations</h3></div>
-            <div className="space-y-3">
-              <div className="glass-button glass-aqua rounded-3xl p-5">
-                <div className="flex items-start gap-3"><TrendingUp className="mt-1 size-5 shrink-0 text-[#8a9a7b]" /><div><h4 className="mb-1 text-sm font-bold">Skill Gap Analysis</h4><p className="text-xs text-[#22393c]/80">{recommendedTeammates.length > 0 ? `${recommendedTeammates.length} teammate${recommendedTeammates.length > 1 ? "s" : ""} could fill your team's missing skills — see the Overview tab.` : "Your team currently covers every required skill."}</p></div></div>
-              </div>
-              <div className="glass-button glass-lilac rounded-3xl p-5">
-                <div className="flex items-start gap-3"><Zap className="mt-1 size-5 shrink-0 text-[#8a9a7b]" /><div><h4 className="mb-1 text-sm font-bold">Project Insights</h4><p className="text-xs text-[#22393c]/80">Project velocity and progress insights can be generated from project activity.</p></div></div>
-              </div>
-              <div className="glass-button glass-peach rounded-3xl p-5">
-                <div className="flex items-start gap-3"><Award className="mt-1 size-5 shrink-0 text-[#8a9a7b]" /><div className="flex-1"><h4 className="mb-1 text-sm font-bold">Potential Extensions</h4><p className="text-xs text-[#22393c]/80">Continue this work as a child project from the Overview tab's lineage section.</p></div></div>
-              </div>
-            </div>
-          </motion.section>
+          <ProjectAITab
+            projectId={projectId}
+            recommendedTeammates={recommendedTeammates}
+            teamAvgTransactivity={teamAvgTransactivity}
+            onShowAIExtensions={() => setShowAIExtensions(true)}
+            currentUser={currentUser}
+            onRemoveRecommendation={handleRemoveRecommendation}
+            onAdoptExtension={handleAdoptExtension} // ✅ ADDED
+          />
         )}
       </div>
 
-      {/* Modals */}
       <AnimatePresence>
         {showEditMember && (<EditMemberModal member={showEditMember} projectSkills={skills} onClose={() => setShowEditMember(null)} onSuccess={() => { setShowEditMember(null); refreshData() }} />)}
         {showAddLink && (<AddLinkModal projectId={projectId} initialType={showAddLink} onClose={() => setShowAddLink(null)} onSuccess={() => { setShowAddLink(null); refreshData() }} />)}
         {showCreateChild && currentUser && (<CreateChildProjectModal parentProject={project} currentUserId={currentUser.id} onClose={() => setShowCreateChild(false)} onSuccess={(newId) => { setShowCreateChild(false); router.push(`/projects/${newId}`) }} />)}
         {showAddRole && (<AddRoleSlotModal projectId={projectId} isOpen={showAddRole} onClose={() => setShowAddRole(false)} onSuccess={refreshData} />)}
         {showInvite && (<InviteModal projectId={projectId} openRoles={openRoles} isOpen={showInvite} onClose={() => setShowInvite(false)} onSuccess={refreshData} />)}
-        {showAIExtensions && (<AIExtensionsModal projectId={projectId} isOpen={showAIExtensions} onClose={() => setShowAIExtensions(false)} />)}
+        {showAIExtensions && (<AIExtensionsModal projectId={projectId} isOpen={showAIExtensions} onClose={() => setShowAIExtensions(false)} onAdopt={handleAdoptExtension} />)}
         {applyRole && (<ApplyModal role={applyRole} isOpen={!!applyRole} onClose={() => setApplyRole(null)} onSuccess={refreshData} />)}
       </AnimatePresence>
     </main>
