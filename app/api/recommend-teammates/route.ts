@@ -8,124 +8,162 @@ const supabase = createClient(
 
 export async function POST(request: NextRequest) {
   try {
-    const { userId } = await request.json()
-    if (!userId) return NextResponse.json({ error: "userId required" }, { status: 400 })
+    const { projectId } = await request.json()
+    if (!projectId) return NextResponse.json({ error: "projectId required" }, { status: 400 })
 
-    // 1. Get current user's data
-    const { data: userProfile } = await supabase
-      .from("people")
-      .select(`id, people_skills(skill_id, skills(name)), collaboration_profiles(transactivity_score)`)
-      .eq("id", userId)
-      .single()
+    // 1. Get project's REQUIRED skills
+    const { data: projectSkills } = await supabase
+      .from("project_skills")
+      .select("skill_id, importance, skills(name)")
+      .eq("project_id", projectId)
+      .eq("importance", "required")
 
-    if (!userProfile) return NextResponse.json({ error: "User not found" }, { status: 404 })
+    const requiredSkillIds = new Set(projectSkills?.map((ps: any) => ps.skill_id) || [])
+    const requiredSkillNames = projectSkills?.map((ps: any) => ps.skills.name) || []
 
-    const userSkillIds = new Set(userProfile.people_skills?.map((ps: any) => ps.skill_id) || [])
-    const userTransactivity = userProfile.collaboration_profiles?.[0]?.transactivity_score ?? 0.5
-    const userSkillsNames = userProfile.people_skills?.map((ps: any) => ps.skills.name) || []
+    // 2. Get current active team members and their skills
+    const { data: teamMembers } = await supabase
+      .from("team_members")
+      .select(`
+        person_id,
+        covered_skill_ids,
+        people!inner(
+          id,
+          people_skills(skill_id, skills(name)),
+          collaboration_profiles(transactivity_score)
+        )
+      `)
+      .eq("project_id", projectId)
+      .eq("status", "active")
 
-    // 2. Get candidates
+    const currentTeamIds = new Set(teamMembers?.map((m: any) => m.person_id) || [])
+    
+    // Calculate team average transactivity
+    const teamTransactivityScores = teamMembers
+      ?.map((m: any) => m.people?.collaboration_profiles?.[0]?.transactivity_score)
+      .filter((score: any) => score !== null && score !== undefined) || []
+    
+    const teamAvgTransactivity = teamTransactivityScores.length > 0 
+      ? teamTransactivityScores.reduce((a: number, b: number) => a + b, 0) / teamTransactivityScores.length 
+      : 0.5
+
+    // Find all skills currently covered by the team (from profile OR manually covered)
+    const coveredSkillIds = new Set<string>()
+    teamMembers?.forEach((m: any) => {
+      m.people?.people_skills?.forEach((ps: any) => coveredSkillIds.add(ps.skill_id))
+      m.covered_skill_ids?.forEach((id: string) => coveredSkillIds.add(id))
+    })
+
+    // Find MISSING required skills
+    const missingSkillIds = [...requiredSkillIds].filter(id => !coveredSkillIds.has(id))
+    
+    // Target the missing skills (or all required if none are missing)
+    const targetSkillIds = missingSkillIds.length > 0 ? missingSkillIds : [...requiredSkillIds]
+
+    // 3. Fetch a pool of candidates (excluding current team)
     const { data: candidates } = await supabase
       .from("people")
-      .select(`id, full_name, role, year, people_skills(skill_id, skills(name)), collaboration_profiles(transactivity_score)`)
-      .neq("id", userId)
-      .limit(100)
+      .select(`
+        id,
+        full_name,
+        role,
+        year,
+        people_skills(skill_id, skills(name)),
+        collaboration_profiles(transactivity_score)
+      `)
+      .limit(150)
 
-    if (!candidates) return NextResponse.json({ results: [] })
+    if (!candidates) {
+      return NextResponse.json({ recommendations: [], team_avg_transactivity: teamAvgTransactivity })
+    }
 
-    // 3. Score candidates mathematically
-    const scoredCandidates = candidates.map((c: any) => {
+    const filteredCandidates = candidates.filter((c: any) => !currentTeamIds.has(c.id))
+
+    // 4. Score candidates mathematically
+    const scoredCandidates = filteredCandidates.map((c: any) => {
       const candidateSkillIds = new Set(c.people_skills?.map((ps: any) => ps.skill_id) || [])
       const candidateTransactivity = c.collaboration_profiles?.[0]?.transactivity_score ?? 0.5
 
-      const complementarySkills = c.people_skills?.filter((ps: any) => !userSkillIds.has(ps.skill_id)).map((ps: any) => ps.skills.name) || []
-      const skillScore = candidateSkillIds.size > 0 ? complementarySkills.length / candidateSkillIds.size : 0
-      const transactivityCompat = 1 - Math.abs(userTransactivity - candidateTransactivity)
+      // HETEROGENEOUS SKILLS: How many of the MISSING skills do they have?
+      const matchingMissingSkills = targetSkillIds.filter(id => candidateSkillIds.has(id))
+      const skillScore = targetSkillIds.length > 0 ? matchingMissingSkills.length / targetSkillIds.length : 0
+
+      // HOMOGENEOUS TRANSACTIVITY: How close is their score to the team average?
+      const transactivityCompat = 1 - Math.abs(teamAvgTransactivity - candidateTransactivity)
+
+      // FINAL SCORE: 60% Skill, 40% Transactivity
       const finalScore = (skillScore * 0.6) + (transactivityCompat * 0.4)
 
+      const matchingSkillNames = c.people_skills
+        ?.filter((ps: any) => targetSkillIds.includes(ps.skill_id))
+        .map((ps: any) => ps.skills.name) || []
+
       return {
-        id: c.id,
-        full_name: c.full_name,
-        role: c.role,
+        user_id: c.id,
+        name: c.full_name,
         year: c.year,
-        complementary_skills: complementarySkills.slice(0, 3),
+        skills: matchingSkillNames.slice(0, 3),
+        technical_score: skillScore,
+        transactivity_compatibility: transactivityCompat,
         final_score: finalScore,
-        skill_score: skillScore,
-        collab_score: transactivityCompat,
-        reason: "", // We will fill this with Groq
+        ai_reason: `${c.full_name} has the missing ${matchingSkillNames.slice(0, 2).join(" and ")} skills your team needs, and their collaboration style (${Math.round(candidateTransactivity * 100)}%) aligns well with your team's average (${Math.round(teamAvgTransactivity * 100)}%).`
       }
     })
 
-    scoredCandidates.sort((a: any, b: any) => b.final_score - a.final_score)
+    // Sort by final score descending
+    scoredCandidates.sort((a, b) => b.final_score - a.final_score)
 
-    // 4. Generate AI Reasoning for the Top 5 Candidates using Groq
-    let aiReasons: Record<string, string> = {}
-    const topCandidates = scoredCandidates.slice(0, 5)
+    // 5. Enhance top 3 with Groq AI reasoning
+    const topCandidates = scoredCandidates.slice(0, 3)
+    if (topCandidates.length > 0 && process.env.GROQ_API_KEY) {
+      try {
+        const prompt = `
+You are an expert academic project manager. 
+The project requires these skills: [${requiredSkillNames.join(", ")}].
+The current team's average collaboration/transactivity score is ${Math.round(teamAvgTransactivity * 100)}%.
+Here are top candidates who have the missing skills:
+${JSON.stringify(topCandidates.map(c => ({ name: c.name, skills: c.skills, collab_score: Math.round(c.transactivity_compatibility * 100) + "%" })), null, 2)}
 
-    if (topCandidates.length > 0) {
-      const groqKey = process.env.GROQ_API_KEY
-      if (groqKey) {
-        try {
-          const prompt = `
-You are an expert team-matching AI. 
-I am a student with skills: [${userSkillsNames.join(", ")}] and a collaboration intensity score of ${Math.round(userTransactivity * 100)}%.
+For each candidate, generate a short, natural, 1-sentence reason why they are a great fit for this specific project. Focus on how their skills fill the gap and their collaboration style matches the team.
+Return ONLY a valid JSON object where keys are their names and values are the reasoning strings. No markdown formatting.
+Example: { "Alice Smith": "Alice brings the missing Python skills your team needs, and her high collaboration score ensures she'll communicate just as frequently as your current members." }
+`
+        const groqResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "llama-3.1-8b-instant",
+            temperature: 0.7,
+            max_tokens: 300,
+            response_format: { type: "json_object" },
+            messages: [{ role: "system", content: prompt }],
+          }),
+        })
+        const groqData = await groqResponse.json()
+        const rawContent = groqData.choices?.[0]?.message?.content || "{}"
+        const cleanJson = rawContent.replace(/^```json\s*|\s*```$/g, "").trim()
+        const aiReasons = JSON.parse(cleanJson)
 
-Here are my top recommended teammates based on complementary skills and matching work ethic:
-${JSON.stringify(topCandidates.map(c => ({ 
-  name: c.full_name, 
-  role: c.role, 
-  year: c.year, 
-  unique_skills: c.complementary_skills, 
-  skill_match: Math.round(c.skill_score * 100) + "%", 
-  collab_match: Math.round(c.collab_score * 100) + "%" 
-})), null, 2)}
-
-For each candidate, generate a short, natural, and insightful 1-2 sentence reason why they are a great match for me. Focus on how their unique skills fill my gaps and how their collaboration style aligns with mine.
-
-Return ONLY a valid JSON object where the keys are their full names and the values are the reasoning strings. Do not include markdown formatting.
-Example: { "Alice Smith": "Alice brings strong Python skills that complement your frontend focus, and her high collaboration score means she'll communicate just as frequently as you do." }
-          `
-
-          const groqResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-            method: "POST",
-            headers: {
-              "Authorization": `Bearer ${groqKey}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              model: "openai/gpt-oss-120b", // Fast and cheap model
-              temperature: 0.7,
-              max_tokens: 500,
-              response_format: { type: "json_object" },
-              messages: [{ role: "system", content: prompt }],
-            }),
-          })
-
-          const groqData = await groqResponse.json()
-          const rawContent = groqData.choices?.[0]?.message?.content || "{}"
-          
-          // Clean up markdown if Groq adds it
-          const cleanJson = rawContent.replace(/^```json\s*|\s*```$/g, "").trim()
-          aiReasons = JSON.parse(cleanJson)
-
-        } catch (groqError) {
-          console.error("Groq reasoning generation failed:", groqError)
-          // Fallback if Groq fails
-          topCandidates.forEach(c => { aiReasons[c.full_name] = `High compatibility match based on complementary skills and collaboration style.` })
-        }
+        scoredCandidates.forEach(c => {
+          if (aiReasons[c.name]) {
+            c.ai_reason = aiReasons[c.name]
+          }
+        })
+      } catch (err) {
+        console.error("Groq reasoning failed, using fallback:", err)
       }
     }
 
-    // 5. Merge AI reasons back into the full list
-    const finalResults = scoredCandidates.map(c => ({
-      ...c,
-      reason: aiReasons[c.full_name] || `Strong match based on complementary skills and collaboration alignment.`
-    }))
-
-    return NextResponse.json({ results: finalResults.slice(0, 20) })
+    return NextResponse.json({ 
+      recommendations: scoredCandidates.slice(0, 10), 
+      team_avg_transactivity: teamAvgTransactivity 
+    })
 
   } catch (error: any) {
-    console.error("Global recommendation error:", error)
+    console.error("Teammate recommendation error:", error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }

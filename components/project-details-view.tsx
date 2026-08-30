@@ -112,6 +112,230 @@ function formatDate(date?: string | null) {
    Modals
 ========================================================= */
 
+function EditSkillsToolsModal({ projectId, currentSkills, currentTools, onClose, onSuccess }: { 
+  projectId: string; 
+  currentSkills: ProjectSkill[]; 
+  currentTools: ProjectTool[]; 
+  onClose: () => void; 
+  onSuccess: () => void 
+}) {
+  const [allSkills, setAllSkills] = useState<any[]>([])
+  const [selectedSkillIds, setSelectedSkillIds] = useState<Set<string>>(new Set(currentSkills.map(s => s.skills?.id).filter(Boolean) as string[]))
+  const [tools, setTools] = useState<{ name: string; website_url: string }[]>(currentTools.map(t => ({ name: t.tools?.name || '', website_url: t.tools?.website_url || '' })))
+  const [searchQuery, setSearchQuery] = useState("")
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    const fetchSkills = async () => {
+      const { data } = await supabase.from("skills").select("id, name, category").order("name")
+      if (data) setAllSkills(data)
+    }
+    fetchSkills()
+  }, [])
+
+  const toggleSkill = (id: string) => {
+    setSelectedSkillIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const addTool = () => setTools([...tools, { name: "", website_url: "" }])
+  const removeTool = (index: number) => setTools(tools.filter((_, i) => i !== index))
+  const updateTool = (index: number, field: 'name' | 'website_url', value: string) => {
+    const newTools = [...tools]
+    newTools[index][field] = value
+    setTools(newTools)
+  }
+
+  const handleSave = async () => {
+    setLoading(true)
+    try {
+      // 1. Update Skills
+      await supabase.from("project_skills").delete().eq("project_id", projectId)
+      if (selectedSkillIds.size > 0) {
+        const skillInserts = Array.from(selectedSkillIds).map(skill_id => ({ project_id: projectId, skill_id }))
+        const { error: skillError } = await supabase.from("project_skills").insert(skillInserts)
+        if (skillError) throw skillError
+      }
+
+      // 2. Update Tools
+      await supabase.from("project_tools").delete().eq("project_id", projectId)
+      
+      for (const tool of tools) {
+        if (!tool.name.trim()) continue
+        
+        // Check if tool exists
+        let { data: existingTool } = await supabase.from("tools").select("id").eq("name", tool.name.trim()).maybeSingle()
+        let toolId = existingTool?.id
+        
+        if (!toolId) {
+          const { data: newTool, error: createError } = await supabase.from("tools").insert({ name: tool.name.trim(), website_url: tool.website_url.trim() || null }).select("id").single()
+          if (createError) throw createError
+          toolId = newTool.id
+        } else if (tool.website_url.trim()) {
+           await supabase.from("tools").update({ website_url: tool.website_url.trim() }).eq("id", toolId)
+        }
+
+        const { error: linkError } = await supabase.from("project_tools").insert({ project_id: projectId, tool_id: toolId })
+        if (linkError) throw linkError
+      }
+
+      alert("Skills and tools updated")
+      onSuccess()
+    } catch (err: any) {
+      alert(err?.message || "Couldn't save changes.")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const filteredSkills = allSkills.filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase()))
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm" onClick={onClose}>
+      <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} onClick={(e) => e.stopPropagation()} className="glass-button glass-neutral w-full max-w-md rounded-3xl p-6 max-h-[85vh] overflow-y-auto">
+        <div className="mb-6 flex items-center justify-between">
+          <h3 className="text-xl font-bold text-[#22393c]">Edit Skills & Tools</h3>
+          <button onClick={onClose} className="rounded-full p-2 hover:bg-[#22393c]/10"><X className="size-5" /></button>
+        </div>
+        
+        <div className="space-y-6">
+          {/* Skills Section */}
+          <div>
+            <label className="mb-2 block text-xs font-bold uppercase text-[#668184]">Skills</label>
+            <div className="relative mb-3">
+              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#668184]" />
+              <input 
+                type="text" 
+                value={searchQuery} 
+                onChange={(e) => setSearchQuery(e.target.value)} 
+                placeholder="Search skills..." 
+                className="w-full rounded-xl border border-[#22393c]/10 bg-white/50 py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-[#8a9a7b]" 
+              />
+            </div>
+            <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto p-2 bg-white/30 rounded-xl">
+              {filteredSkills.map((skill) => (
+                <button 
+                  key={skill.id} 
+                  onClick={() => toggleSkill(skill.id)} 
+                  className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${selectedSkillIds.has(skill.id) ? "bg-[#8a9a7b] text-white" : "bg-white/60 text-[#22393c] hover:bg-white"}`}
+                >
+                  {skill.name}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-[#668184] mt-2">{selectedSkillIds.size} skill{selectedSkillIds.size !== 1 ? "s" : ""} selected</p>
+          </div>
+
+          {/* Tools Section */}
+          <div>
+            <div className="mb-2 flex items-center justify-between">
+              <label className="block text-xs font-bold uppercase text-[#668184]">Tools</label>
+              <button onClick={addTool} className="flex items-center gap-1 text-xs font-semibold text-[#8a9a7b] hover:text-[#22393c]">
+                <Plus className="size-3" /> Add Tool
+              </button>
+            </div>
+            <div className="space-y-2">
+              {tools.map((tool, index) => (
+                <div key={index} className="flex gap-2 items-start">
+                  <div className="flex-1 space-y-1">
+                    <input 
+                      value={tool.name} 
+                      onChange={(e) => updateTool(index, 'name', e.target.value)} 
+                      placeholder="Tool name (e.g., Figma)" 
+                      className="w-full rounded-lg border border-[#22393c]/10 bg-white/50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#8a9a7b]" 
+                    />
+                    <input 
+                      value={tool.website_url} 
+                      onChange={(e) => updateTool(index, 'website_url', e.target.value)} 
+                      placeholder="Website URL (optional)" 
+                      className="w-full rounded-lg border border-[#22393c]/10 bg-white/50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#8a9a7b]" 
+                    />
+                  </div>
+                  <button onClick={() => removeTool(index)} className="mt-1 p-2 rounded-lg bg-red-100 text-red-600 hover:bg-red-200">
+                    <Trash2 className="size-4" />
+                  </button>
+                </div>
+              ))}
+              {tools.length === 0 && <p className="text-xs text-[#668184] italic">No tools added yet.</p>}
+            </div>
+          </div>
+
+          <button onClick={handleSave} disabled={loading} className="w-full rounded-2xl bg-[#22393c] py-3.5 font-semibold text-white transition-transform hover:scale-[1.02] disabled:opacity-50">
+            {loading ? "Saving..." : "Save Changes"}
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  )
+}
+
+function EditProjectModal({ project, onClose, onSuccess }: { project: Project; onClose: () => void; onSuccess: () => void }) {
+  const [title, setTitle] = useState(project.title)
+  const [description, setDescription] = useState(project.description || "")
+  const [githubUrl, setGithubUrl] = useState(project.github_url || "")
+  const [demoUrl, setDemoUrl] = useState(project.demo_url || "")
+  const [loading, setLoading] = useState(false)
+
+  const handleSave = async () => {
+    setLoading(true)
+    try {
+      const { error } = await supabase
+        .from("projects")
+        .update({
+          title: title.trim(),
+          description: description.trim() || null,
+          github_url: githubUrl.trim() || null,
+          demo_url: demoUrl.trim() || null,
+        })
+        .eq("id", project.id)
+      
+      if (error) throw error
+      alert("Project updated successfully")
+      onSuccess()
+    } catch (err: any) {
+      alert(err?.message || "Couldn't save changes.")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm" onClick={onClose}>
+      <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} onClick={(e) => e.stopPropagation()} className="glass-button glass-neutral w-full max-w-md rounded-3xl p-6 max-h-[85vh] overflow-y-auto">
+        <div className="mb-6 flex items-center justify-between">
+          <h3 className="text-xl font-bold text-[#22393c]">Edit Project Details</h3>
+          <button onClick={onClose} className="rounded-full p-2 hover:bg-[#22393c]/10"><X className="size-5" /></button>
+        </div>
+        <div className="space-y-4">
+          <div>
+            <label className="mb-2 block text-xs font-bold uppercase text-[#668184]">Project Title</label>
+            <input value={title} onChange={(e) => setTitle(e.target.value)} className="w-full rounded-2xl border border-[#22393c]/10 bg-white/50 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#8a9a7b]" placeholder="e.g. Campus Legacy Platform" />
+          </div>
+          <div>
+            <label className="mb-2 block text-xs font-bold uppercase text-[#668184]">Description</label>
+            <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} className="w-full rounded-2xl border border-[#22393c]/10 bg-white/50 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#8a9a7b] resize-none" placeholder="Describe your project..." />
+          </div>
+          <div>
+            <label className="mb-2 block text-xs font-bold uppercase text-[#668184]">GitHub URL</label>
+            <input value={githubUrl} onChange={(e) => setGithubUrl(e.target.value)} className="w-full rounded-2xl border border-[#22393c]/10 bg-white/50 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#8a9a7b]" placeholder="https://github.com/..." />
+          </div>
+          <div>
+            <label className="mb-2 block text-xs font-bold uppercase text-[#668184]">Demo URL</label>
+            <input value={demoUrl} onChange={(e) => setDemoUrl(e.target.value)} className="w-full rounded-2xl border border-[#22393c]/10 bg-white/50 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#8a9a7b]" placeholder="https://..." />
+          </div>
+          <button onClick={handleSave} disabled={loading || !title.trim()} className="w-full rounded-2xl bg-[#22393c] py-3.5 font-semibold text-white transition-transform hover:scale-[1.02] disabled:opacity-50">
+            {loading ? "Saving..." : "Save Changes"}
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  )
+}
+
 function EditMemberModal({ member, projectSkills, onClose, onSuccess }: { member: TeamMember; projectSkills: ProjectSkill[]; onClose: () => void; onSuccess: () => void }) {
   const [role, setRole] = useState(member.role || "")
   const [coveredIds, setCoveredIds] = useState<Set<string>>(new Set(member.covered_skill_ids || []))
@@ -356,7 +580,6 @@ function ApplyModal({ role, isOpen, onClose, onSuccess }: { role: OpenRole | nul
   )
 }
 
-// ✅ UPDATED: Accepts onAdopt prop to handle creation and redirection
 function AIExtensionsModal({ projectId, isOpen, onClose, onAdopt }: { projectId: string; isOpen: boolean; onClose: () => void; onAdopt: (ideaId: string) => void }) {
   const [extensions, setExtensions] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
@@ -446,18 +669,18 @@ export function ProjectDetailsView({ projectId }: ProjectDetailsViewProps) {
   const [showInvite, setShowInvite] = useState(false)
   const [applyRole, setApplyRole] = useState<OpenRole | null>(null)
   const [showEditMember, setShowEditMember] = useState<TeamMember | null>(null)
+  const [showEditProject, setShowEditProject] = useState(false)
+  const [showEditSkillsTools, setShowEditSkillsTools] = useState(false) // ✅ NEW STATE
   const [showAddLink, setShowAddLink] = useState<LinkType | null>(null)
   const [showCreateChild, setShowCreateChild] = useState(false)
   const [statusMenuOpen, setStatusMenuOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<"overview" | "team" | "tasks" | "ai">("overview")
   const [refreshing, setRefreshing] = useState(false)
 
-  // ✅ NEW: Centralized Adopt Extension Handler
   const handleAdoptExtension = async (ideaId: string) => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { alert("Please sign in first."); return }
     
-    // 1. Fetch the actual extension idea details
     const { data: idea, error: ideaError } = await supabase
       .from("project_ideas")
       .select("title, description, domain, difficulty, ai_reason")
@@ -469,7 +692,6 @@ export function ProjectDetailsView({ projectId }: ProjectDetailsViewProps) {
       return
     }
     
-    // 2. Create the new project with the idea's actual title and description
     const { data: newProject, error } = await supabase
       .from("projects")
       .insert({ 
@@ -488,7 +710,6 @@ export function ProjectDetailsView({ projectId }: ProjectDetailsViewProps) {
       return 
     }
     
-    // 3. Create the lineage relationship
     await supabase
       .from("project_lineages")
       .insert({ 
@@ -498,8 +719,6 @@ export function ProjectDetailsView({ projectId }: ProjectDetailsViewProps) {
       })
     
     alert(`Extension project "${idea.title}" created successfully!`)
-    
-    // 4. Close modal and redirect to the new project
     setShowAIExtensions(false)
     router.push(`/projects/${newProject.id}`)
   }
@@ -533,14 +752,11 @@ export function ProjectDetailsView({ projectId }: ProjectDetailsViewProps) {
       const { data: toolsData } = await supabase.from("project_tools").select(`tools(name, website_url)`).eq("project_id", projectId)
       if (toolsData) setTools(toolsData)
 
-      // ✅ FIX: 3-Step Lineage Fetch to properly get Parents, Siblings, and Children
-      // Step 1: Get direct parents
       const { data: parentLineages } = await supabase
         .from("project_lineages")
         .select(`id, parent_project_id, child_project_id, relationship_type, parent:parent_project_id(id, title, status)`)
         .eq("child_project_id", projectId)
 
-      // Step 2: Get parent IDs
       const parentIds = [
         ...new Set(
           (parentLineages || [])
@@ -549,7 +765,6 @@ export function ProjectDetailsView({ projectId }: ProjectDetailsViewProps) {
         ),
       ]
 
-      // Step 3: Get siblings (other children of those parents)
       let siblingLineages: any[] = []
       if (parentIds.length > 0) {
         const { data: siblings } = await supabase
@@ -560,13 +775,11 @@ export function ProjectDetailsView({ projectId }: ProjectDetailsViewProps) {
         siblingLineages = siblings || []
       }
 
-      // Step 4: Get children
       const { data: childLineages } = await supabase
         .from("project_lineages")
         .select(`id, parent_project_id, child_project_id, relationship_type, child:child_project_id(id, title, status)`)
         .eq("parent_project_id", projectId)
 
-      // Combine them for the UI
       setLineages([
         ...(parentLineages || []),
         ...siblingLineages,
@@ -601,7 +814,6 @@ export function ProjectDetailsView({ projectId }: ProjectDetailsViewProps) {
       setLoading(false)
     }
   }
-
 
   useEffect(() => {
     const load = async () => { setLoading(true); await fetchData(); setLoading(false) }
@@ -714,7 +926,7 @@ export function ProjectDetailsView({ projectId }: ProjectDetailsViewProps) {
           </Link>
           {isOwner && (
             <>
-              <button onClick={() => router.push(`/projects/${project.id}/edit`)} className="flex h-8 w-8 items-center justify-center rounded-full bg-[#8a9a7b]/20 text-[#8a9a7b]" aria-label="Edit project">
+              <button onClick={() => setShowEditProject(true)} className="flex h-8 w-8 items-center justify-center rounded-full bg-[#8a9a7b]/20 text-[#8a9a7b]" aria-label="Edit project">
                 <Pencil className="size-4" />
               </button>
               <button onClick={handleDeleteProject} className="flex h-8 w-8 items-center justify-center rounded-full bg-red-100 text-red-600" aria-label="Delete project">
@@ -828,8 +1040,16 @@ export function ProjectDetailsView({ projectId }: ProjectDetailsViewProps) {
               </div>
             </motion.section>
 
+            {/* ✅ UPDATED: Skills & Tools Section with Edit Button */}
             <section>
-              <h3 className="mb-3 text-sm font-bold uppercase tracking-wider text-[#668184]">Skills & Tools</h3>
+              <div className="mb-3 flex items-center justify-between">
+                <h3 className="text-sm font-bold uppercase tracking-wider text-[#668184]">Skills & Tools</h3>
+                {isOwner && (
+                  <button onClick={() => setShowEditSkillsTools(true)} className="flex items-center gap-1 text-xs font-semibold text-[#8a9a7b] hover:text-[#22393c] transition-colors">
+                    <Pencil className="size-3" /> Edit
+                  </button>
+                )}
+              </div>
               <div className="glass-button glass-neutral flex flex-wrap gap-2 rounded-3xl p-4">
                 {skills.map((skill: any, index: number) => {
                   const teamSkillIdsSet = new Set(teamMembers.flatMap((m) => [...(m.people?.people_skills?.map((ps) => ps.skills?.id) || []), ...(m.covered_skill_ids || [])]).filter(Boolean))
@@ -972,9 +1192,6 @@ export function ProjectDetailsView({ projectId }: ProjectDetailsViewProps) {
           </motion.section>
         )}
 
-        {/* =====================================================
-            TAB 3: TASKS
-        ====================================================== */}
         {activeTab === "tasks" && currentUser && (
           <ProjectTasksTab
             projectId={projectId}
@@ -984,9 +1201,6 @@ export function ProjectDetailsView({ projectId }: ProjectDetailsViewProps) {
           />
         )}
 
-        {/* =====================================================
-            TAB 4: AI
-        ====================================================== */}
         {activeTab === "ai" && (
           <ProjectAITab
             projectId={projectId}
@@ -995,12 +1209,29 @@ export function ProjectDetailsView({ projectId }: ProjectDetailsViewProps) {
             onShowAIExtensions={() => setShowAIExtensions(true)}
             currentUser={currentUser}
             onRemoveRecommendation={handleRemoveRecommendation}
-            onAdoptExtension={handleAdoptExtension} // ✅ ADDED
+            onAdoptExtension={handleAdoptExtension}
           />
         )}
       </div>
 
       <AnimatePresence>
+        {showEditProject && project && (
+          <EditProjectModal
+            project={project}
+            onClose={() => setShowEditProject(false)}
+            onSuccess={() => { setShowEditProject(false); refreshData() }}
+          />
+        )}
+        {/* ✅ NEW: Edit Skills & Tools Modal */}
+        {showEditSkillsTools && (
+          <EditSkillsToolsModal
+            projectId={projectId}
+            currentSkills={skills}
+            currentTools={tools}
+            onClose={() => setShowEditSkillsTools(false)}
+            onSuccess={() => { setShowEditSkillsTools(false); refreshData() }}
+          />
+        )}
         {showEditMember && (<EditMemberModal member={showEditMember} projectSkills={skills} onClose={() => setShowEditMember(null)} onSuccess={() => { setShowEditMember(null); refreshData() }} />)}
         {showAddLink && (<AddLinkModal projectId={projectId} initialType={showAddLink} onClose={() => setShowAddLink(null)} onSuccess={() => { setShowAddLink(null); refreshData() }} />)}
         {showCreateChild && currentUser && (<CreateChildProjectModal parentProject={project} currentUserId={currentUser.id} onClose={() => setShowCreateChild(false)} onSuccess={(newId) => { setShowCreateChild(false); router.push(`/projects/${newId}`) }} />)}

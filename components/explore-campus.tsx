@@ -48,12 +48,10 @@ const HEIGHT = 650
 function calculateNodeDegrees(nodes: GraphNode[], links: GraphLink[]): Map<string, number> {
   const degreeMap = new Map<string, number>()
   
-  // Initialize all nodes with degree 0
   nodes.forEach(node => {
     degreeMap.set(node.id, 0)
   })
   
-  // Count connections for each node
   links.forEach(link => {
     const sourceId = typeof link.source === "string" ? link.source : link.source.id
     const targetId = typeof link.target === "string" ? link.target : link.target.id
@@ -66,136 +64,74 @@ function calculateNodeDegrees(nodes: GraphNode[], links: GraphLink[]): Map<strin
 }
 
 function getNodeRadius(node: GraphNode, degree: number = 0) {
-  // Base size + growth based on connections
   const baseSize = node.type === "project" ? 12 : node.type === "skill" ? 9 : 10
-  const growth = Math.min(degree * 1.5, 10) // Cap growth to prevent huge nodes
-  
+  const growth = Math.min(degree * 1.5, 10)
   return baseSize + growth
 }
 
 function getNodeColor(type: GraphNode["type"]) {
-  if (type === "project") {
-    return "#22393c"
-  }
-
-  if (type === "skill") {
-    return "#8a9a7b"
-  }
-
+  if (type === "project") return "#22393c"
+  if (type === "skill") return "#8a9a7b"
   return "#c88b6a"
 }
 
 function getLinkColor(type: GraphLink["type"]) {
   switch (type) {
-    case "lineage":
-      return "#8a9a7b"
-
-    case "skill-relation":
-      return "#9eafa0"
-
-    case "following":
-      return "#c88b6a"
-
-    case "project-skill":
-      return "#a8b6aa"
-
-    default:
-      return "#b5c0bb"
+    case "lineage": return "#8a9a7b"
+    case "skill-relation": return "#9eafa0"
+    case "following": return "#c88b6a"
+    case "project-skill": return "#a8b6aa"
+    default: return "#b5c0bb"
   }
 }
 
 function getLinkWidth(type: GraphLink["type"]) {
   switch (type) {
-    case "lineage":
-      return 2.4
-
-    case "following":
-      return 1.8
-
-    case "skill-relation":
-      return 1.5
-
-    case "project-skill":
-      return 1.2
-
-    default:
-      return 1.4
+    case "lineage": return 2.4
+    case "following": return 1.8
+    case "skill-relation": return 1.5
+    case "project-skill": return 1.2
+    default: return 1.4
   }
 }
 
 function getLinkOpacity(type: GraphLink["type"]) {
   switch (type) {
-    case "lineage":
-      return 0.72
-
-    case "following":
-      return 0.62
-
-    case "skill-relation":
-      return 0.45
-
-    case "project-skill":
-      return 0.35
-
-    default:
-      return 0.4
+    case "lineage": return 0.72
+    case "following": return 0.62
+    case "skill-relation": return 0.45
+    case "project-skill": return 0.35
+    default: return 0.4
   }
 }
 
 function getLinkDistance(tab: Tab) {
   switch (tab) {
-    case "Projects":
-      return 125
-
-    case "Skills":
-      return 105
-
-    case "People":
-      return 115
-
-    case "All":
-      return 145
-
-    default:
-      return 120
+    case "Projects": return 125
+    case "Skills": return 105
+    case "People": return 115
+    case "All": return 145
+    default: return 120
   }
 }
 
 function getLinkStrength(tab: Tab) {
   switch (tab) {
-    case "Projects":
-      return 0.85
-
-    case "Skills":
-      return 0.5
-
-    case "People":
-      return 0.65
-
-    case "All":
-      return 0.5
-
-    default:
-      return 0.6
+    case "Projects": return 0.85
+    case "Skills": return 0.5
+    case "People": return 0.65
+    case "All": return 0.5
+    default: return 0.6
   }
 }
 
 function getChargeStrength(tab: Tab) {
   switch (tab) {
-    case "Projects":
-      return -420
-
-    case "Skills":
-      return -300
-
-    case "People":
-      return -360
-
-    case "All":
-      return -500
-
-    default:
-      return -350
+    case "Projects": return -420
+    case "Skills": return -300
+    case "People": return -360
+    case "All": return -500
+    default: return -350
   }
 }
 
@@ -203,69 +139,44 @@ function removeDuplicateLinks(links: GraphLink[]): GraphLink[] {
   const seen = new Set<string>()
 
   return links.filter((link) => {
-    const source =
-      typeof link.source === "string"
-        ? link.source
-        : link.source.id
-
-    const target =
-      typeof link.target === "string"
-        ? link.target
-        : link.target.id
+    const source = typeof link.source === "string" ? link.source : link.source.id
+    const target = typeof link.target === "string" ? link.target : link.target.id
 
     const key =
       link.type === "following"
         ? `${link.type}-${source}-${target}`
-        : `${link.type}-${[source, target]
-            .sort()
-            .join("-")}`
+        : `${link.type}-${[source, target].sort().join("-")}`
 
-    if (seen.has(key)) {
-      return false
-    }
-
+    if (seen.has(key)) return false
     seen.add(key)
     return true
   })
 }
 
-function LegendDot({
-  label,
-  className,
-}: {
-  label: string
-  className: string
-}) {
+function LegendDot({ label, className }: { label: string; className: string }) {
   return (
     <div className="flex items-center gap-1.5 rounded-full border border-[#22393c]/10 bg-white/80 px-2.5 py-1.5 backdrop-blur">
-      <span
-        className={`h-2 w-2 rounded-full ${className}`}
-      />
-
-      <span className="text-[9px] font-semibold text-[#668184]">
-        {label}
-      </span>
+      <span className={`h-2 w-2 rounded-full ${className}`} />
+      <span className="text-[9px] font-semibold text-[#668184]">{label}</span>
     </div>
   )
 }
 
 export function ExploreCampus() {
   const [activeTab, setActiveTab] = useState<Tab>("Projects")
-
   const [nodes, setNodes] = useState<GraphNode[]>([])
   const [links, setLinks] = useState<GraphLink[]>([])
   const [loading, setLoading] = useState(true)
-
   const [scale, setScale] = useState(1)
   const [offset, setOffset] = useState({ x: 0, y: 0 })
+  
+  // Hover state for highlighting connections
+  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null)
 
   const svgRef = useRef<SVGSVGElement | null>(null)
   const simulationRef = useRef<any>(null)
 
-  const dragRef = useRef<{
-    node: GraphNode | null
-    pointerId: number | null
-  }>({
+  const dragRef = useRef<{ node: GraphNode | null; pointerId: number | null }>({
     node: null,
     pointerId: null,
   })
@@ -286,18 +197,11 @@ export function ExploreCampus() {
     originalY: 0,
   })
 
-  /*
-   * ---------------------------------------------------------
-   * FETCH GRAPH DATA
-   * ---------------------------------------------------------
-   */
-
   useEffect(() => {
     let cancelled = false
 
     const fetchGraph = async () => {
       setLoading(true)
-
       try {
         if (activeTab === "Projects") {
           await fetchProjectGraph(cancelled)
@@ -310,15 +214,12 @@ export function ExploreCampus() {
         }
       } catch (error) {
         console.error("Graph fetch error:", error)
-
         if (!cancelled) {
           setNodes([])
           setLinks([])
         }
       } finally {
-        if (!cancelled) {
-          setLoading(false)
-        }
+        if (!cancelled) setLoading(false)
       }
     }
 
@@ -326,44 +227,20 @@ export function ExploreCampus() {
 
     return () => {
       cancelled = true
-
-      if (simulationRef.current) {
-        simulationRef.current.stop()
-      }
+      if (simulationRef.current) simulationRef.current.stop()
     }
   }, [activeTab])
 
-  /*
-   * ---------------------------------------------------------
-   * PROJECT GRAPH
-   *
-   * ONLY:
-   * Project nodes
-   *
-   * EDGES:
-   * parent project -> child project
-   * ---------------------------------------------------------
-   */
-
   const fetchProjectGraph = async (cancelled: boolean) => {
     const [{ data: projects }, { data: lineages }] = await Promise.all([
-      supabase
-        .from("projects")
-        .select("id, title, visibility")
-        .eq("visibility", "public"),
-
-      supabase
-        .from("project_lineages")
-        .select(
-          "id, parent_project_id, child_project_id, relationship_type"
-        ),
+      supabase.from("projects").select("id, title, visibility").eq("visibility", "public"),
+      supabase.from("project_lineages").select("id, parent_project_id, child_project_id, relationship_type"),
     ])
 
     if (cancelled) return
 
     const projectRows = projects || []
     const lineageRows = lineages || []
-
     const projectIds = new Set(projectRows.map((p: any) => p.id))
 
     const graphNodes: GraphNode[] = projectRows.map((project: any) => ({
@@ -374,12 +251,7 @@ export function ExploreCampus() {
     }))
 
     const graphLinks: GraphLink[] = lineageRows
-      .filter(
-        (lineage: any) =>
-          lineage.parent_project_id &&
-          lineage.child_project_id &&
-          lineage.parent_project_id !== lineage.child_project_id
-      )
+      .filter((lineage: any) => lineage.parent_project_id && lineage.child_project_id && lineage.parent_project_id !== lineage.child_project_id)
       .map((lineage: any) => ({
         id: `lineage-${lineage.id}`,
         source: `project-${lineage.parent_project_id}`,
@@ -391,79 +263,43 @@ export function ExploreCampus() {
     setLinks(removeDuplicateLinks(graphLinks))
   }
 
-  /*
-   * ---------------------------------------------------------
-   * SKILL GRAPH
-   *
-   * ONLY:
-   * Skill nodes
-   *
-   * EDGES:
-   * Two skills are connected when they are used
-   * in the same project.
-   * ---------------------------------------------------------
-   */
-
   const fetchSkillGraph = async (cancelled: boolean) => {
     const { data: projectSkills, error } = await supabase
       .from("project_skills")
-      .select(`
-        project_id,
-        skill_id,
-        skills (
-          id,
-          name
-        )
-      `)
+      .select(`project_id, skill_id, skills (id, name)`)
 
     if (error) throw error
-
     if (cancelled) return
 
     const rows = projectSkills || []
-
     const skillMap = new Map<string, string>()
 
     rows.forEach((row: any) => {
-      if (row.skill_id && row.skills?.name) {
-        skillMap.set(row.skill_id, row.skills.name)
-      }
+      if (row.skill_id && row.skills?.name) skillMap.set(row.skill_id, row.skills.name)
     })
 
-    const graphNodes: GraphNode[] = Array.from(skillMap.entries()).map(
-      ([id, name]) => ({
-        id: `skill-${id}`,
-        label: name,
-        type: "skill",
-      })
-    )
+    const graphNodes: GraphNode[] = Array.from(skillMap.entries()).map(([id, name]) => ({
+      id: `skill-${id}`,
+      label: name,
+      type: "skill",
+    }))
 
     const skillsByProject = new Map<string, string[]>()
-
     rows.forEach((row: any) => {
       if (!row.project_id || !row.skill_id) return
-
-      if (!skillsByProject.has(row.project_id)) {
-        skillsByProject.set(row.project_id, [])
-      }
-
+      if (!skillsByProject.has(row.project_id)) skillsByProject.set(row.project_id, [])
       skillsByProject.get(row.project_id)!.push(row.skill_id)
     })
 
     const graphLinks: GraphLink[] = []
-
     skillsByProject.forEach((skillIds) => {
       const uniqueSkills = [...new Set(skillIds)]
-
       for (let i = 0; i < uniqueSkills.length; i++) {
         for (let j = i + 1; j < uniqueSkills.length; j++) {
-          const a = uniqueSkills[i]
-          const b = uniqueSkills[j]
-
           graphLinks.push({
-            id: `skill-relation-${a}-${b}`,
-            source: `skill-${a}`,
-            target: `skill-${b}`,
+            id: `skill-relation-${uniqueSkills[i]}-${uniqueSkills[j]}`,
+            source: `skill-${uniqueSkills[i]}`,
+            target: `skill-${uniqueSkills[j]}`,
             type: "skill-relation",
           })
         }
@@ -474,39 +310,17 @@ export function ExploreCampus() {
     setLinks(removeDuplicateLinks(graphLinks))
   }
 
-  /*
-   * ---------------------------------------------------------
-   * PEOPLE GRAPH
-   *
-   * ONLY:
-   * Person nodes
-   *
-   * EDGES:
-   * follower -> following
-   * ---------------------------------------------------------
-   */
-
   const fetchPeopleGraph = async (cancelled: boolean) => {
     const [{ data: people }, { data: connections }] = await Promise.all([
-      supabase
-        .from("people")
-        .select("id, full_name"),
-
-      supabase
-        .from("connections")
-        .select(
-          "id, follower_id, following_id, status"
-        ),
+      supabase.from("people").select("id, full_name"),
+      supabase.from("connections").select("id, follower_id, following_id, status"),
     ])
 
     if (cancelled) return
 
     const peopleRows = people || []
     const connectionRows = connections || []
-
-    const peopleIds = new Set(
-      peopleRows.map((person: any) => person.id)
-    )
+    const peopleIds = new Set(peopleRows.map((person: any) => person.id))
 
     const graphNodes: GraphNode[] = peopleRows.map((person: any) => ({
       id: `person-${person.id}`,
@@ -516,12 +330,7 @@ export function ExploreCampus() {
     }))
 
     const graphLinks: GraphLink[] = connectionRows
-      .filter(
-        (connection: any) =>
-          connection.follower_id &&
-          connection.following_id &&
-          connection.follower_id !== connection.following_id
-      )
+      .filter((connection: any) => connection.follower_id && connection.following_id && connection.follower_id !== connection.following_id)
       .filter((connection: any) => {
         return (
           connection.status === "accepted" ||
@@ -541,20 +350,6 @@ export function ExploreCampus() {
     setLinks(removeDuplicateLinks(graphLinks))
   }
 
-  /*
-   * ---------------------------------------------------------
-   * ALL CAMPUS GRAPH
-   *
-   * NODES:
-   * Projects + Skills + People
-   *
-   * EDGES:
-   * Project lineage
-   * Project -> Skill
-   * Person -> Person
-   * ---------------------------------------------------------
-   */
-
   const fetchAllGraph = async (cancelled: boolean) => {
     const [
       { data: projects },
@@ -563,38 +358,11 @@ export function ExploreCampus() {
       { data: people },
       { data: connections },
     ] = await Promise.all([
-      supabase
-        .from("projects")
-        .select("id, title, visibility")
-        .eq("visibility", "public"),
-
-      supabase
-        .from("project_lineages")
-        .select(
-          "id, parent_project_id, child_project_id"
-        ),
-
-      supabase
-        .from("project_skills")
-        .select(`
-          id,
-          project_id,
-          skill_id,
-          skills (
-            id,
-            name
-          )
-        `),
-
-      supabase
-        .from("people")
-        .select("id, full_name"),
-
-      supabase
-        .from("connections")
-        .select(
-          "id, follower_id, following_id, status"
-        ),
+      supabase.from("projects").select("id, title, visibility").eq("visibility", "public"),
+      supabase.from("project_lineages").select("id, parent_project_id, child_project_id"),
+      supabase.from("project_skills").select(`id, project_id, skill_id, skills (id, name)`),
+      supabase.from("people").select("id, full_name"),
+      supabase.from("connections").select("id, follower_id, following_id, status"),
     ])
 
     if (cancelled) return
@@ -608,186 +376,85 @@ export function ExploreCampus() {
     const graphNodes: GraphNode[] = []
     const graphLinks: GraphLink[] = []
 
-    const projectIds = new Set(
-      projectRows.map((p: any) => p.id)
-    )
-
+    const projectIds = new Set(projectRows.map((p: any) => p.id))
     projectRows.forEach((project: any) => {
-      graphNodes.push({
-        id: `project-${project.id}`,
-        label: project.title,
-        type: "project",
-        href: `/projects/${project.id}`,
-      })
+      graphNodes.push({ id: `project-${project.id}`, label: project.title, type: "project", href: `/projects/${project.id}` })
     })
 
     const skillIds = new Set<string>()
-
     skillRows.forEach((row: any) => {
       if (row.skill_id && row.skills?.name && !skillIds.has(row.skill_id)) {
         skillIds.add(row.skill_id)
-
-        graphNodes.push({
-          id: `skill-${row.skill_id}`,
-          label: row.skills.name,
-          type: "skill",
-        })
+        graphNodes.push({ id: `skill-${row.skill_id}`, label: row.skills.name, type: "skill" })
       }
     })
 
-    const peopleIds = new Set(
-      peopleRows.map((person: any) => person.id)
-    )
-
+    const peopleIds = new Set(peopleRows.map((person: any) => person.id))
     peopleRows.forEach((person: any) => {
-      graphNodes.push({
-        id: `person-${person.id}`,
-        label: person.full_name || "Unknown",
-        type: "person",
-        href: `/profile/${person.id}`,
-      })
+      graphNodes.push({ id: `person-${person.id}`, label: person.full_name || "Unknown", type: "person", href: `/profile/${person.id}` })
     })
 
     lineageRows.forEach((lineage: any) => {
       if (lineage.parent_project_id && lineage.child_project_id) {
-        graphLinks.push({
-          id: `lineage-${lineage.id}`,
-          source: `project-${lineage.parent_project_id}`,
-          target: `project-${lineage.child_project_id}`,
-          type: "lineage",
-        })
+        graphLinks.push({ id: `lineage-${lineage.id}`, source: `project-${lineage.parent_project_id}`, target: `project-${lineage.child_project_id}`, type: "lineage" })
       }
     })
 
     skillRows.forEach((row: any) => {
       if (row.project_id && row.skill_id) {
-        graphLinks.push({
-          id: `project-skill-${row.id || `${row.project_id}-${row.skill_id}`}`,
-          source: `project-${row.project_id}`,
-          target: `skill-${row.skill_id}`,
-          type: "project-skill",
-        })
+        graphLinks.push({ id: `project-skill-${row.id || `${row.project_id}-${row.skill_id}`}`, source: `project-${row.project_id}`, target: `skill-${row.skill_id}`, type: "project-skill" })
       }
     })
 
     connectionRows.forEach((connection: any) => {
       if (connection.follower_id && connection.following_id) {
-        graphLinks.push({
-          id: `following-${connection.id}`,
-          source: `person-${connection.follower_id}`,
-          target: `person-${connection.following_id}`,
-          type: "following",
-        })
+        graphLinks.push({ id: `following-${connection.id}`, source: `person-${connection.follower_id}`, target: `person-${connection.following_id}`, type: "following" })
       }
     })
 
-    const uniqueNodes = Array.from(
-      new Map(graphNodes.map((node) => [node.id, node])).values()
-    )
-    
+    const uniqueNodes = Array.from(new Map(graphNodes.map((node) => [node.id, node])).values())
     const uniqueLinks = removeDuplicateLinks(graphLinks)
 
     setNodes(uniqueNodes)
     setLinks(uniqueLinks)
   }
 
-  /*
-   * ---------------------------------------------------------
-   * FORCE SIMULATION
-   * ---------------------------------------------------------
-   */
-
   useEffect(() => {
-    if (loading) return
-    if (nodes.length === 0) return
-
-    if (simulationRef.current) {
-      simulationRef.current.stop()
-    }
+    if (loading || nodes.length === 0) return
+    if (simulationRef.current) simulationRef.current.stop()
 
     const degreeMap = calculateNodeDegrees(nodes, links)
 
     const simulationNodes = nodes.map((node) => ({
       ...node,
       degree: degreeMap.get(node.id) || 0,
-      x:
-        node.x ??
-        WIDTH / 2 +
-          (Math.random() - 0.5) * 250,
-
-      y:
-        node.y ??
-        HEIGHT / 2 +
-          (Math.random() - 0.5) * 180,
+      x: node.x ?? WIDTH / 2 + (Math.random() - 0.5) * 250,
+      y: node.y ?? HEIGHT / 2 + (Math.random() - 0.5) * 180,
     }))
 
-    const nodeIds = new Set(
-      simulationNodes.map((node) => node.id)
-    )
-
+    const nodeIds = new Set(simulationNodes.map((node) => node.id))
     const simulationLinks = links
-      .filter(
-        (link) =>
-          nodeIds.has(
-            typeof link.source === "string"
-              ? link.source
-              : link.source.id
-          ) &&
-          nodeIds.has(
-            typeof link.target === "string"
-              ? link.target
-              : link.target.id
-          )
-      )
-      .map((link) => ({
-        ...link,
-      }))
+      .filter((link) => {
+        const sourceId = typeof link.source === "string" ? link.source : link.source.id
+        const targetId = typeof link.target === "string" ? link.target : link.target.id
+        return nodeIds.has(sourceId) && nodeIds.has(targetId)
+      })
+      .map((link) => ({ ...link }))
 
     const simulation = forceSimulation<GraphNode>(simulationNodes)
-      .force(
-        "link",
-        forceLink<GraphNode, GraphLink>(simulationLinks)
-          .id((d) => d.id)
-          .distance(getLinkDistance(activeTab))
-          .strength(getLinkStrength(activeTab))
-      )
-      .force(
-        "charge",
-        forceManyBody<GraphNode>()
-          .strength(getChargeStrength(activeTab))
-          .distanceMax(500)
-      )
-      .force(
-        "center",
-        forceCenter(WIDTH / 2, HEIGHT / 2)
-      )
-      .force(
-        "collision",
-        forceCollide<GraphNode>()
-          .radius((d) => getNodeRadius(d, d.degree || 0) + 14)
-          .strength(0.9)
-      )
-      .force(
-        "x",
-        forceX<GraphNode>(WIDTH / 2).strength(0.035)
-      )
-      .force(
-        "y",
-        forceY<GraphNode>(HEIGHT / 2).strength(0.035)
-      )
+      .force("link", forceLink<GraphNode, GraphLink>(simulationLinks).id((d) => d.id).distance(getLinkDistance(activeTab)).strength(getLinkStrength(activeTab)))
+      .force("charge", forceManyBody<GraphNode>().strength(getChargeStrength(activeTab)).distanceMax(500))
+      .force("center", forceCenter(WIDTH / 2, HEIGHT / 2))
+      .force("collision", forceCollide<GraphNode>().radius((d) => getNodeRadius(d, d.degree || 0) + 14).strength(0.9))
+      .force("x", forceX<GraphNode>(WIDTH / 2).strength(0.035))
+      .force("y", forceY<GraphNode>(HEIGHT / 2).strength(0.035))
       .alpha(1)
       .alphaDecay(0.025)
 
     simulationRef.current = simulation
 
     simulation.on("tick", () => {
-      setNodes(
-        simulationNodes.map((node) => ({
-          ...node,
-          x: node.x,
-          y: node.y,
-        }))
-      )
+      setNodes(simulationNodes.map((node) => ({ ...node, x: node.x, y: node.y })))
     })
 
     return () => {
@@ -795,145 +462,63 @@ export function ExploreCampus() {
     }
   }, [loading, activeTab, links])
 
-  /*
-   * ---------------------------------------------------------
-   * ZOOM / PAN
-   * ---------------------------------------------------------
-   */
+  // Calculate connected nodes for hover highlighting
+  const connectedNodeIds = useMemo(() => {
+    if (!hoveredNodeId) return new Set<string>()
+    const connected = new Set<string>()
+    connected.add(hoveredNodeId)
+    links.forEach(link => {
+      const sourceId = typeof link.source === "string" ? link.source : link.source.id
+      const targetId = typeof link.target === "string" ? link.target : link.target.id
+      if (sourceId === hoveredNodeId) connected.add(targetId)
+      if (targetId === hoveredNodeId) connected.add(sourceId)
+    })
+    return connected
+  }, [hoveredNodeId, links])
 
-  const zoomIn = () => {
-    setScale((current) =>
-      Math.min(2.5, current + 0.15)
-    )
-  }
+  const zoomIn = () => setScale((current) => Math.min(2.5, current + 0.15))
+  const zoomOut = () => setScale((current) => Math.max(0.45, current - 0.15))
+  const resetView = () => { setScale(1); setOffset({ x: 0, y: 0 }) }
 
-  const zoomOut = () => {
-    setScale((current) =>
-      Math.max(0.45, current - 0.15)
-    )
-  }
-
-  const resetView = () => {
-    setScale(1)
-    setOffset({ x: 0, y: 0 })
-  }
-
-  const handleWheel = (
-    event: React.WheelEvent<SVGSVGElement>
-  ) => {
+  const handleWheel = (event: React.WheelEvent<SVGSVGElement>) => {
     event.preventDefault()
-
     const delta = event.deltaY > 0 ? -0.08 : 0.08
-
-    setScale((current) =>
-      Math.min(
-        2.5,
-        Math.max(0.45, current + delta)
-      )
-    )
+    setScale((current) => Math.min(2.5, Math.max(0.45, current + delta)))
   }
 
-  /*
-   * ---------------------------------------------------------
-   * NODE DRAGGING
-   * ---------------------------------------------------------
-   */
-
-  const handleNodePointerDown = (
-    event: React.PointerEvent,
-    node: GraphNode
-  ) => {
+  const handleNodePointerDown = (event: React.PointerEvent, node: GraphNode) => {
     event.stopPropagation()
-
-    dragRef.current = {
-      node,
-      pointerId: event.pointerId,
-    }
-
-    const simulation = simulationRef.current
-
-    if (simulation) {
-      simulation.alphaTarget(0.3).restart()
-    }
-
+    dragRef.current = { node, pointerId: event.pointerId }
+    if (simulationRef.current) simulationRef.current.alphaTarget(0.3).restart()
     node.fx = node.x
     node.fy = node.y
-
-    ;(event.currentTarget as HTMLElement).setPointerCapture(
-      event.pointerId
-    )
+    ;(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId)
   }
 
-  const handleNodePointerMove = (
-    event: React.PointerEvent
-  ) => {
+  const handleNodePointerMove = (event: React.PointerEvent) => {
     const node = dragRef.current.node
-
-    if (!node) return
-
-    const svg = svgRef.current
-    if (!svg) return
-
-    const rect = svg.getBoundingClientRect()
-
-    const x =
-      ((event.clientX - rect.left) /
-        rect.width) *
-        WIDTH
-
-    const y =
-      ((event.clientY - rect.top) /
-        rect.height) *
-        HEIGHT
-
-    node.fx =
-      WIDTH / 2 +
-      (x - WIDTH / 2) / scale -
-      offset.x
-
-    node.fy =
-      HEIGHT / 2 +
-      (y - HEIGHT / 2) / scale -
-      offset.y
+    if (!node || !svgRef.current) return
+    const rect = svgRef.current.getBoundingClientRect()
+    const x = ((event.clientX - rect.left) / rect.width) * WIDTH
+    const y = ((event.clientY - rect.top) / rect.height) * HEIGHT
+    node.fx = WIDTH / 2 + (x - WIDTH / 2) / scale - offset.x
+    node.fy = HEIGHT / 2 + (y - HEIGHT / 2) / scale - offset.y
   }
 
-  const handleNodePointerUp = (
-    event: React.PointerEvent
-  ) => {
+  const handleNodePointerUp = (event: React.PointerEvent) => {
     const node = dragRef.current.node
-
     if (!node) return
-
     node.fx = null
     node.fy = null
-
-    if (simulationRef.current) {
-      simulationRef.current.alphaTarget(0)
-    }
-
-    dragRef.current = {
-      node: null,
-      pointerId: null,
-    }
-
+    if (simulationRef.current) simulationRef.current.alphaTarget(0)
+    dragRef.current = { node: null, pointerId: null }
     try {
-      ;(
-        event.currentTarget as HTMLElement
-      ).releasePointerCapture(event.pointerId)
+      ;(event.currentTarget as HTMLElement).releasePointerCapture(event.pointerId)
     } catch {}
   }
 
-  /*
-   * ---------------------------------------------------------
-   * PAN
-   * ---------------------------------------------------------
-   */
-
-  const handlePanStart = (
-    event: React.PointerEvent<SVGSVGElement>
-  ) => {
+  const handlePanStart = (event: React.PointerEvent<SVGSVGElement>) => {
     if (dragRef.current.node) return
-
     panRef.current = {
       active: true,
       pointerId: event.pointerId,
@@ -942,79 +527,36 @@ export function ExploreCampus() {
       originalX: offset.x,
       originalY: offset.y,
     }
-
-    event.currentTarget.setPointerCapture(
-      event.pointerId
-    )
+    event.currentTarget.setPointerCapture(event.pointerId)
   }
 
-  const handlePanMove = (
-    event: React.PointerEvent<SVGSVGElement>
-  ) => {
+  const handlePanMove = (event: React.PointerEvent<SVGSVGElement>) => {
     if (!panRef.current.active) return
-
-    const dx =
-      (event.clientX - panRef.current.startX) /
-      1.2
-
-    const dy =
-      (event.clientY - panRef.current.startY) /
-      1.2
-
-    setOffset({
-      x: panRef.current.originalX + dx,
-      y: panRef.current.originalY + dy,
-    })
+    const dx = (event.clientX - panRef.current.startX) / 1.2
+    const dy = (event.clientY - panRef.current.startY) / 1.2
+    setOffset({ x: panRef.current.originalX + dx, y: panRef.current.originalY + dy })
   }
 
-  const handlePanEnd = (
-    event: React.PointerEvent<SVGSVGElement>
-  ) => {
+  const handlePanEnd = (event: React.PointerEvent<SVGSVGElement>) => {
     panRef.current.active = false
-
     try {
-      event.currentTarget.releasePointerCapture(
-        event.pointerId
-      )
+      event.currentTarget.releasePointerCapture(event.pointerId)
     } catch {}
   }
 
-  /*
-   * ---------------------------------------------------------
-   * RENDER HELPERS
-   * ---------------------------------------------------------
-   */
-
   const visibleLinks = useMemo(() => {
     const ids = new Set(nodes.map((n) => n.id))
-
     return links.filter((link) => {
-      const source =
-        typeof link.source === "string"
-          ? link.source
-          : link.source.id
-
-      const target =
-        typeof link.target === "string"
-          ? link.target
-          : link.target.id
-
+      const source = typeof link.source === "string" ? link.source : link.source.id
+      const target = typeof link.target === "string" ? link.target : link.target.id
       return ids.has(source) && ids.has(target)
     })
   }, [links, nodes])
 
-  const nodeMap = useMemo(() => {
-    return new Map(nodes.map((node) => [node.id, node]))
-  }, [nodes])
+  const nodeMap = useMemo(() => new Map(nodes.map((node) => [node.id, node])), [nodes])
 
-  const getNode = (
-    endpoint: string | GraphNode
-  ) => {
-    const id =
-      typeof endpoint === "string"
-        ? endpoint
-        : endpoint.id
-
+  const getNode = (endpoint: string | GraphNode) => {
+    const id = typeof endpoint === "string" ? endpoint : endpoint.id
     return nodeMap.get(id)
   }
 
@@ -1026,35 +568,16 @@ export function ExploreCampus() {
       </div>
 
       <div className="relative mx-auto w-full max-w-6xl">
-        <motion.header
-          initial={{ opacity: 0, y: -12 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-5"
-        >
-          <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-[#668184]">
-            Explore Your Campus
-          </p>
-
+        <motion.header initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="mb-5">
+          <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-[#668184]">Explore Your Campus</p>
           <div className="mt-1 flex items-end justify-between">
             <div>
-              <h1 className="text-3xl font-semibold tracking-tight">
-                My College
-              </h1>
-
-              <p className="mt-1 text-xs text-[#668184]">
-                Explore the relationships between projects,
-                skills and people.
-              </p>
+              <h1 className="text-3xl font-semibold tracking-tight">My College</h1>
+              <p className="mt-1 text-xs text-[#668184]">Explore the relationships between projects, skills and people.</p>
             </div>
-
             <div className="hidden text-right sm:block">
-              <p className="text-xs font-semibold text-[#22393c]">
-                {nodes.length} nodes
-              </p>
-
-              <p className="text-[10px] text-[#668184]">
-                {visibleLinks.length} connections
-              </p>
+              <p className="text-xs font-semibold text-[#22393c]">{nodes.length} nodes</p>
+              <p className="text-[10px] text-[#668184]">{visibleLinks.length} connections</p>
             </div>
           </div>
         </motion.header>
@@ -1068,13 +591,10 @@ export function ExploreCampus() {
                   setScale(1)
                   setOffset({ x: 0, y: 0 })
                 }
-
                 setActiveTab(tab)
               }}
               className={`flex-1 rounded-full px-4 py-2.5 text-xs font-semibold transition-all ${
-                activeTab === tab
-                  ? "bg-[#22393c] text-white shadow-md"
-                  : "text-[#668184] hover:bg-white hover:text-[#22393c]"
+                activeTab === tab ? "bg-[#22393c] text-white shadow-md" : "text-[#668184] hover:bg-white hover:text-[#22393c]"
               }`}
             >
               {tab}
@@ -1084,73 +604,35 @@ export function ExploreCampus() {
 
         <div className="relative overflow-hidden rounded-[28px] border border-[#22393c]/10 bg-[#f7f9f6] shadow-[0_20px_70px_rgba(34,57,60,0.10)]">
           <div className="absolute right-4 top-4 z-30 flex gap-2">
-            <button
-              onClick={zoomOut}
-              className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#22393c]/10 bg-white/85 text-[#22393c] shadow-sm backdrop-blur hover:bg-white"
-              title="Zoom out"
-            >
+            <button onClick={zoomOut} className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#22393c]/10 bg-white/85 text-[#22393c] shadow-sm backdrop-blur hover:bg-white" title="Zoom out">
               <ZoomOut className="size-4" />
             </button>
-
-            <button
-              onClick={zoomIn}
-              className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#22393c]/10 bg-white/85 text-[#22393c] shadow-sm backdrop-blur hover:bg-white"
-              title="Zoom in"
-            >
+            <button onClick={zoomIn} className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#22393c]/10 bg-white/85 text-[#22393c] shadow-sm backdrop-blur hover:bg-white" title="Zoom in">
               <ZoomIn className="size-4" />
             </button>
-
-            <button
-              onClick={resetView}
-              className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#22393c]/10 bg-white/85 text-[#22393c] shadow-sm backdrop-blur hover:bg-white"
-              title="Reset graph"
-            >
+            <button onClick={resetView} className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#22393c]/10 bg-white/85 text-[#22393c] shadow-sm backdrop-blur hover:bg-white" title="Reset graph">
               <Maximize2 className="size-4" />
             </button>
           </div>
 
           <div className="absolute bottom-4 left-4 z-30 flex flex-wrap gap-2">
-            <LegendDot
-              label="Projects"
-              className="bg-[#22393c]"
-            />
-
-            {(activeTab === "Skills" ||
-              activeTab === "All") && (
-              <LegendDot
-                label="Skills"
-                className="bg-[#8a9a7b]"
-              />
-            )}
-
-            {(activeTab === "People" ||
-              activeTab === "All") && (
-              <LegendDot
-                label="People"
-                className="bg-[#c88b6a]"
-              />
-            )}
+            <LegendDot label="Projects" className="bg-[#22393c]" />
+            {(activeTab === "Skills" || activeTab === "All") && <LegendDot label="Skills" className="bg-[#8a9a7b]" />}
+            {(activeTab === "People" || activeTab === "All") && <LegendDot label="People" className="bg-[#c88b6a]" />}
           </div>
 
           {loading ? (
             <div className="flex h-[620px] items-center justify-center">
               <div className="flex flex-col items-center gap-3">
                 <Loader2 className="size-8 animate-spin text-[#668184]" />
-                <p className="text-xs text-[#668184]">
-                  Mapping your campus...
-                </p>
+                <p className="text-xs text-[#668184]">Mapping your campus...</p>
               </div>
             </div>
           ) : nodes.length === 0 ? (
             <div className="flex h-[620px] items-center justify-center">
               <div className="text-center">
-                <p className="text-sm font-semibold">
-                  Nothing to visualize yet.
-                </p>
-
-                <p className="mt-1 text-xs text-[#668184]">
-                  Add some campus data to build the graph.
-                </p>
+                <p className="text-sm font-semibold">Nothing to visualize yet.</p>
+                <p className="mt-1 text-xs text-[#668184]">Add some campus data to build the graph.</p>
               </div>
             </div>
           ) : (
@@ -1165,49 +647,22 @@ export function ExploreCampus() {
               onPointerCancel={handlePanEnd}
             >
               <defs>
-                <filter
-                  id="nodeGlow"
-                  x="-100%"
-                  y="-100%"
-                  width="300%"
-                  height="300%"
-                >
-                  <feGaussianBlur
-                    stdDeviation="4"
-                    result="blur"
-                  />
-
+                <filter id="nodeGlow" x="-100%" y="-100%" width="300%" height="300%">
+                  <feGaussianBlur stdDeviation="4" result="blur" />
                   <feMerge>
                     <feMergeNode in="blur" />
                     <feMergeNode in="SourceGraphic" />
                   </feMerge>
                 </filter>
-
-                <marker
-                  id="followingArrow"
-                  markerWidth="7"
-                  markerHeight="7"
-                  refX="7"
-                  refY="3.5"
-                  orient="auto"
-                >
-                  <path
-                    d="M0,0 L7,3.5 L0,7"
-                    fill="none"
-                    stroke="#c88b6a"
-                    strokeWidth="1.2"
-                  />
+                <marker id="followingArrow" markerWidth="7" markerHeight="7" refX="7" refY="3.5" orient="auto">
+                  <path d="M0,0 L7,3.5 L0,7" fill="none" stroke="#c88b6a" strokeWidth="1.2" />
                 </marker>
               </defs>
 
-              <g
-                transform={`translate(${WIDTH / 2 + offset.x} ${
-                  HEIGHT / 2 + offset.y
-                }) scale(${scale}) translate(${-WIDTH / 2} ${
-                  -HEIGHT / 2
-                })`}
-              >
+              <g transform={`translate(${WIDTH / 2 + offset.x} ${HEIGHT / 2 + offset.y}) scale(${scale}) translate(${-WIDTH / 2} ${-HEIGHT / 2})`}>
                 {visibleLinks.map((link) => {
+                  const sourceId = typeof link.source === "string" ? link.source : link.source.id
+                  const targetId = typeof link.target === "string" ? link.target : link.target.id
                   const source = getNode(link.source)
                   const target = getNode(link.target)
 
@@ -1215,9 +670,11 @@ export function ExploreCampus() {
 
                   const x1 = source.x ?? WIDTH / 2
                   const y1 = source.y ?? HEIGHT / 2
-
                   const x2 = target.x ?? WIDTH / 2
                   const y2 = target.y ?? HEIGHT / 2
+
+                  const isLinkHighlighted = hoveredNodeId && (sourceId === hoveredNodeId || targetId === hoveredNodeId)
+                  const linkOpacityVal = hoveredNodeId ? (isLinkHighlighted ? 0.9 : 0.05) : getLinkOpacity(link.type)
 
                   return (
                     <line
@@ -1227,22 +684,11 @@ export function ExploreCampus() {
                       x2={x2}
                       y2={y2}
                       stroke={getLinkColor(link.type)}
-                      strokeWidth={getLinkWidth(
-                        link.type
-                      )}
-                      strokeOpacity={getLinkOpacity(
-                        link.type
-                      )}
-                      strokeDasharray={
-                        link.type === "project-skill"
-                          ? "4 5"
-                          : undefined
-                      }
-                      markerEnd={
-                        link.type === "following"
-                          ? "url(#followingArrow)"
-                          : undefined
-                      }
+                      strokeWidth={getLinkWidth(link.type)}
+                      strokeOpacity={linkOpacityVal}
+                      strokeDasharray={link.type === "project-skill" ? "4 5" : undefined}
+                      markerEnd={link.type === "following" ? "url(#followingArrow)" : undefined}
+                      style={{ transition: "stroke-opacity 0.2s ease" }}
                     />
                   )
                 })}
@@ -1250,68 +696,46 @@ export function ExploreCampus() {
                 {nodes.map((node) => {
                   const x = node.x ?? WIDTH / 2
                   const y = node.y ?? HEIGHT / 2
-
                   const degree = node.degree || 0
                   const radius = getNodeRadius(node, degree)
+
+                  const isNodeHighlighted = hoveredNodeId ? connectedNodeIds.has(node.id) : true
+                  const isMainHovered = hoveredNodeId === node.id
+                  const nodeOpacityVal = isNodeHighlighted ? 1 : 0.1
 
                   const nodeContent = (
                     <g
                       transform={`translate(${x}, ${y})`}
-                      onPointerDown={(event) =>
-                        handleNodePointerDown(
-                          event,
-                          node
-                        )
-                      }
-                      onPointerMove={
-                        handleNodePointerMove
-                      }
-                      onPointerUp={
-                        handleNodePointerUp
-                      }
-                      onPointerCancel={
-                        handleNodePointerUp
-                      }
+                      onPointerDown={(event) => handleNodePointerDown(event, node)}
+                      onPointerMove={handleNodePointerMove}
+                      onPointerUp={handleNodePointerUp}
+                      onPointerCancel={handleNodePointerUp}
+                      onPointerEnter={() => setHoveredNodeId(node.id)}
+                      onPointerLeave={() => setHoveredNodeId(null)}
                       className="cursor-pointer"
+                      style={{ opacity: nodeOpacityVal, transition: "opacity 0.2s ease" }}
                     >
                       <circle
-                        r={radius + 6}
+                        r={radius + (isMainHovered ? 10 : 6)}
                         fill={getNodeColor(node.type)}
-                        opacity="0.08"
+                        opacity={isMainHovered ? 0.2 : 0.08}
+                        style={{ transition: "r 0.2s ease, opacity 0.2s ease" }}
                       />
-
                       <circle
                         r={radius}
                         fill="#f7f9f6"
-                        stroke={getNodeColor(
-                          node.type
-                        )}
-                        strokeWidth={
-                          node.type === "project"
-                            ? 2.5
-                            : 2
-                        }
+                        stroke={getNodeColor(node.type)}
+                        strokeWidth={isMainHovered ? 3 : node.type === "project" ? 2.5 : 2}
                         filter="url(#nodeGlow)"
+                        style={{ transition: "stroke-width 0.2s ease" }}
                       />
-
-                      <circle
-                        r={Math.max(3, radius * 0.22)}
-                        fill={getNodeColor(
-                          node.type
-                        )}
-                      />
-
-                      <foreignObject
-                        x={-75}
-                        y={radius + 7}
-                        width={150}
-                        height={42}
-                        pointerEvents="none"
-                      >
+                      <circle r={Math.max(3, radius * 0.22)} fill={getNodeColor(node.type)} />
+                      <foreignObject x={-75} y={radius + 7} width={150} height={42} pointerEvents="none">
                         <div className="text-center">
                           <p
-                            className="overflow-hidden text-ellipsis whitespace-nowrap text-[10px] font-semibold text-[#22393c]"
+                            className={`overflow-hidden text-ellipsis whitespace-nowrap text-[10px] font-semibold ${isMainHovered ? "text-[#22393c]" : "text-[#22393c]/80"}`}
                             title={node.label}
+                            style={{ transition: "color 0.2s ease" }}
                           >
                             {node.label}
                           </p>
@@ -1322,20 +746,13 @@ export function ExploreCampus() {
 
                   if (node.href) {
                     return (
-                      <Link
-                        key={node.id}
-                        href={node.href}
-                      >
+                      <Link key={node.id} href={node.href}>
                         {nodeContent}
                       </Link>
                     )
                   }
 
-                  return (
-                    <g key={node.id}>
-                      {nodeContent}
-                    </g>
-                  )
+                  return <g key={node.id}>{nodeContent}</g>
                 })}
               </g>
             </svg>
@@ -1344,25 +761,12 @@ export function ExploreCampus() {
 
         <div className="mt-4 flex items-center justify-between px-1">
           <div>
-            <p className="text-sm font-semibold text-[#22393c]">
-              {activeTab} Network
-            </p>
-
-            <p className="text-[10px] text-[#668184]">
-              Drag nodes · Scroll to zoom · Drag empty space
-              to pan
-            </p>
+            <p className="text-sm font-semibold text-[#22393c]">{activeTab} Network</p>
+            <p className="text-[10px] text-[#668184]">Drag nodes · Scroll to zoom · Drag empty space to pan</p>
           </div>
-
           <p className="text-xs font-medium text-[#668184]">
-            <span className="font-bold text-[#22393c]">
-              {nodes.length}
-            </span>{" "}
-            nodes ·{" "}
-            <span className="font-bold text-[#22393c]">
-              {visibleLinks.length}
-            </span>{" "}
-            links
+            <span className="font-bold text-[#22393c]">{nodes.length}</span> nodes ·{" "}
+            <span className="font-bold text-[#22393c]">{visibleLinks.length}</span> links
           </p>
         </div>
       </div>

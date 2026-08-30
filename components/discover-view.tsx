@@ -64,7 +64,8 @@ export function DiscoverView() {
         const [projectsRes, skillsRes, rolesRes, connectionsRes] = await Promise.all([
           supabase.from("projects").select("id, title, description, status, project_skills(skills(name)), team_members(person_id)").eq("visibility", "public").order("created_at", { ascending: false }).limit(20),
           supabase.from("skills").select("id, name, category").limit(50),
-          supabase.from("project_roles").select("id, title, description, slots, projects(title)").eq("status", "open").limit(20),
+          // ✅ UPDATED: Added project_id and projects(id, title) to the select
+          supabase.from("project_roles").select("id, project_id, title, description, slots, projects(id, title)").eq("status", "open").limit(20),
           supabase.from("connections").select("follower_id, following_id").or(`follower_id.eq.${user.id},following_id.eq.${user.id}`),
         ])
 
@@ -402,7 +403,7 @@ export function DiscoverView() {
               </motion.section>
             )}
 
-            {/* ROLES SECTION */}
+            {/* ✅ ROLES SECTION (Now Clickable) */}
             {(activeFilter === "all" || activeFilter === "roles") && filteredRoles.length > 0 && (
               <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
                 <div className="mb-4 flex items-center justify-between">
@@ -413,14 +414,21 @@ export function DiscoverView() {
                 </div>
                 <div className="space-y-3">
                   {filteredRoles.slice(0, CAPS.roles).map((role) => (
-                    <div key={role.id} className="glass-button glass-lilac rounded-2xl p-4">
-                      <div className="flex justify-between items-start mb-2">
-                        <h3 className="text-sm font-bold text-[#22393c]">{role.title}</h3>
-                        <span className="rounded-full bg-[#8a9a7b]/20 px-2 py-0.5 text-[9px] font-bold text-[#22393c]">{role.slots} slots</span>
+                    // ✅ Wrapped in Link to navigate to the project
+                    <Link 
+                      key={role.id} 
+                      href={`/projects/${role.project_id}`}
+                      className="block"
+                    >
+                      <div className="glass-button glass-lilac rounded-2xl p-4 transition-transform hover:-translate-y-1 cursor-pointer">
+                        <div className="flex justify-between items-start mb-2">
+                          <h3 className="text-sm font-bold text-[#22393c]">{role.title}</h3>
+                          <span className="rounded-full bg-[#8a9a7b]/20 px-2 py-0.5 text-[9px] font-bold text-[#22393c]">{role.slots} slots</span>
+                        </div>
+                        <p className="text-xs text-[#668184] mb-2">{role.projects?.title}</p>
+                        {role.description && <p className="text-[11px] text-[#22393c]/80 line-clamp-2">{role.description}</p>}
                       </div>
-                      <p className="text-xs text-[#668184] mb-2">{role.projects?.title}</p>
-                      {role.description && <p className="text-[11px] text-[#22393c]/80 line-clamp-2">{role.description}</p>}
-                    </div>
+                    </Link>
                   ))}
                 </div>
                 {filteredRoles.length > CAPS.roles && (
