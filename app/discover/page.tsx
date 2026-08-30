@@ -1,3 +1,6 @@
+export const dynamic = 'force-dynamic'
+
+
 import { DiscoverView } from "@/components/discover-view"
 import { BottomNav } from "@/components/bottom-nav"
 
