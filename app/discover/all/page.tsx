@@ -1,6 +1,6 @@
-export const dynamic = 'force-dynamic'
-
 "use client"
+
+export const dynamic = 'force-dynamic'
 import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion" // ✅ ADD THIS LINE
 import { useSearchParams, useRouter } from "next/navigation"
