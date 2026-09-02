@@ -1,4 +1,5 @@
 "use client"
+
 import { motion } from "framer-motion"
 import { Briefcase, Clock, Mail, Pencil, Plus } from "lucide-react"
 import Link from "next/link"
@@ -58,12 +59,15 @@ export function ProjectTeamTab({
           <span className="text-sm font-medium text-[#668184]">{teamMembers.length} / 5 members</span>
         </div>
         <div className="overflow-hidden rounded-3xl glass-button glass-neutral">
-          <div className="grid grid-cols-12 gap-4 border-b border-[#22393c]/10 bg-[#22393c]/5 p-4 text-xs font-bold uppercase tracking-wider text-[#668184]">
+          
+          {/* Table Header - Hidden on mobile to prevent squishing */}
+          <div className="hidden sm:grid grid-cols-12 gap-4 border-b border-[#22393c]/10 bg-[#22393c]/5 p-4 text-xs font-bold uppercase tracking-wider text-[#668184]">
             <div className="col-span-4">Person</div>
             <div className="col-span-3">Role</div>
             <div className="col-span-3">Skills Covered</div>
             <div className="col-span-2 text-right">Actions</div>
           </div>
+          
           <div className="divide-y divide-[#22393c]/5">
             {teamMembers.map((member: any) => {
               const canEditMember = isOwner || member.person_id === currentUser?.id
@@ -72,27 +76,36 @@ export function ProjectTeamTab({
                 .map((s: any) => s.skills?.name)
 
               return (
-                <div key={member.id} className="grid grid-cols-12 items-center gap-4 p-4">
-                  <div className="col-span-4 flex items-center gap-3">
-                    <Link href={`/profile/${member.people?.id}`} className="group flex items-center gap-3">
+                // ✅ Responsive Row: Stacks on mobile, 12-col grid on desktop
+                <div key={member.id} className="flex flex-col sm:grid sm:grid-cols-12 items-start sm:items-center gap-3 sm:gap-4 p-4 border-b border-[#22393c]/5 last:border-0">
+                  
+                  <div className="sm:col-span-4 flex items-center gap-3 w-full">
+                    <Link href={`/profile/${member.people?.id}`} className="group flex items-center gap-3 w-full">
                       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#8a9a7b] text-xs font-bold text-white transition-transform group-hover:scale-105">
                         {getInitials(member.people?.full_name)}
                       </div>
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-semibold transition-colors group-hover:text-[#8a9a7b]">{member.people?.full_name || "Unknown"}</p>
                         <p className="text-[10px] text-[#668184]">{member.people?.role || "Student"}</p>
                       </div>
                     </Link>
                   </div>
-                  <div className="col-span-3">
+
+                  <div className="sm:col-span-3 flex items-center w-full sm:w-auto">
+                    {/* Mobile-only label */}
+                    <span className="sm:hidden text-[10px] font-bold uppercase text-[#668184] mr-2 min-w-[40px]">Role:</span>
                     <span className="rounded-full bg-[#8a9a7b]/20 px-3 py-1 text-xs font-medium">{member.role || "Contributor"}</span>
                   </div>
-                  <div className="col-span-3 flex flex-wrap gap-1">
+
+                  <div className="sm:col-span-3 flex flex-wrap gap-1 items-center w-full sm:w-auto">
+                    {/* Mobile-only label */}
+                    <span className="sm:hidden text-[10px] font-bold uppercase text-[#668184] mr-2 min-w-[50px]">Skills:</span>
                     {coveredNames.length > 0 ? coveredNames.map((n: string) => (
                       <span key={n} className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-800">{n}</span>
                     )) : <span className="text-[10px] text-[#668184] italic">from profile</span>}
                   </div>
-                  <div className="col-span-2 flex justify-end pr-2">
+
+                  <div className="sm:col-span-2 flex sm:justify-end w-full sm:w-auto">
                     {canEditMember && (
                       <button
                         onClick={() => onShowEditMember(member)}
@@ -111,9 +124,9 @@ export function ProjectTeamTab({
         </div>
       </div>
 
-      {/* Owner Actions */}
+      {/* Owner Actions - Stacks on mobile */}
       {isOwner && (
-        <div className="mb-8 flex gap-3">
+        <div className="mb-8 flex flex-col sm:flex-row gap-3">
           <button onClick={onShowAddRole} className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-[#8a9a7b] py-3 text-sm font-semibold text-white transition-transform hover:scale-[1.02]">
             <Plus className="size-4" /> Create Open Role
           </button>
@@ -201,6 +214,7 @@ export function ProjectTeamTab({
           </div>
         </div>
       )}
+      
       {openRoles.length === 0 && teamMembers.length === 0 && !isOwner && (
         <div className="text-center py-8 text-[#668184]">
           <p className="text-sm">No open positions or team members yet.</p>

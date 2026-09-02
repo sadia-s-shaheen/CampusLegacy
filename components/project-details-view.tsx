@@ -1,4 +1,5 @@
 "use client"
+
 import { useEffect, useState } from "react"
 import { AnimatePresence, motion } from "framer-motion"
 import {
@@ -11,6 +12,7 @@ import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase/client"
 import { ProjectTasksTab } from "@/components/project-tasks-tab"
 import { ProjectAITab } from "@/components/project-ai-tab"
+import { ProjectOverviewTab } from "@/components/project-overview-tab"
 
 type ProjectDetailsViewProps = { projectId: string }
 
@@ -153,7 +155,6 @@ function EditSkillsToolsModal({ projectId, currentSkills, currentTools, onClose,
   const handleSave = async () => {
     setLoading(true)
     try {
-      // 1. Update Skills
       await supabase.from("project_skills").delete().eq("project_id", projectId)
       if (selectedSkillIds.size > 0) {
         const skillInserts = Array.from(selectedSkillIds).map(skill_id => ({ project_id: projectId, skill_id }))
@@ -161,13 +162,11 @@ function EditSkillsToolsModal({ projectId, currentSkills, currentTools, onClose,
         if (skillError) throw skillError
       }
 
-      // 2. Update Tools
       await supabase.from("project_tools").delete().eq("project_id", projectId)
       
       for (const tool of tools) {
         if (!tool.name.trim()) continue
         
-        // Check if tool exists
         let { data: existingTool } = await supabase.from("tools").select("id").eq("name", tool.name.trim()).maybeSingle()
         let toolId = existingTool?.id
         
@@ -203,7 +202,6 @@ function EditSkillsToolsModal({ projectId, currentSkills, currentTools, onClose,
         </div>
         
         <div className="space-y-6">
-          {/* Skills Section */}
           <div>
             <label className="mb-2 block text-xs font-bold uppercase text-[#668184]">Skills</label>
             <div className="relative mb-3">
@@ -230,7 +228,6 @@ function EditSkillsToolsModal({ projectId, currentSkills, currentTools, onClose,
             <p className="text-xs text-[#668184] mt-2">{selectedSkillIds.size} skill{selectedSkillIds.size !== 1 ? "s" : ""} selected</p>
           </div>
 
-          {/* Tools Section */}
           <div>
             <div className="mb-2 flex items-center justify-between">
               <label className="block text-xs font-bold uppercase text-[#668184]">Tools</label>
@@ -670,7 +667,7 @@ export function ProjectDetailsView({ projectId }: ProjectDetailsViewProps) {
   const [applyRole, setApplyRole] = useState<OpenRole | null>(null)
   const [showEditMember, setShowEditMember] = useState<TeamMember | null>(null)
   const [showEditProject, setShowEditProject] = useState(false)
-  const [showEditSkillsTools, setShowEditSkillsTools] = useState(false) // ✅ NEW STATE
+  const [showEditSkillsTools, setShowEditSkillsTools] = useState(false)
   const [showAddLink, setShowAddLink] = useState<LinkType | null>(null)
   const [showCreateChild, setShowCreateChild] = useState(false)
   const [statusMenuOpen, setStatusMenuOpen] = useState(false)
@@ -901,12 +898,6 @@ export function ProjectDetailsView({ projectId }: ProjectDetailsViewProps) {
   const canRequestToJoin = !isOwner && !isTeamMember && !hasPendingRequest && !teamIsFull
   const myPendingInvitations = invitations.filter((inv) => inv.invitee_id === currentUser?.id)
 
-  const parentNodes = lineages.filter((l: any) => l.child_project_id === projectId).map((l: any) => l.parent).filter(Boolean)
-  const childNodes = lineages.filter((l: any) => l.parent_project_id === projectId).map((l: any) => l.child).filter(Boolean)
-  const siblingNodes = parentNodes.length > 0 
-    ? Array.from(new Map(lineages.filter((l: any) => l.child_project_id !== projectId && parentNodes.some((p: any) => p.id === l.parent_project_id)).map((l: any) => [l.child?.id, l.child])).values()).filter(Boolean)
-    : []
-
   return (
     <main className="relative min-h-dvh bg-[#e8e9e8] pb-32 text-[#22393c]">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(255,255,255,.9),transparent_34%),radial-gradient(circle_at_88%_75%,rgba(196,213,211,.55),transparent_34%)]" />
@@ -948,140 +939,27 @@ export function ProjectDetailsView({ projectId }: ProjectDetailsViewProps) {
       </div>
 
       <div className="relative mx-auto w-full max-w-2xl space-y-8 px-5 pb-40 pt-6">
+        
+        {/* ✅ REPLACED INLINE OVERVIEW JSX WITH THE NEW COMPONENT */}
         {activeTab === "overview" && (
-          <>
-            <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass-button glass-aqua rounded-3xl p-6">
-              <div className="flex gap-4">
-                <div className="h-32 w-32 shrink-0 overflow-hidden rounded-2xl bg-gradient-to-br from-[#8a9a7b] to-[#22393c]">
-                  {project.image_url ? <img src={project.image_url} alt={project.title} className="h-full w-full object-cover" /> : <div className="flex h-full w-full items-center justify-center text-4xl font-bold text-white">{project.title.charAt(0).toUpperCase()}</div>}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="mb-2 flex items-start justify-between gap-3">
-                    <h2 className="text-2xl font-bold text-[#22393c]">{project.title}</h2>
-                    <div className="flex shrink-0 flex-col items-end gap-1.5">
-                      <div className="relative">
-                        <button onClick={() => isOwner && setStatusMenuOpen((v) => !v)} className={`flex items-center gap-1 rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider ${STATUS_STYLES[project.status || "active"] || STATUS_STYLES.active} ${isOwner ? "cursor-pointer" : ""}`}>
-                          {statusLabel(project.status || "active")}{isOwner && <ChevronDown className="size-3" />}
-                        </button>
-                        <AnimatePresence>
-                          {statusMenuOpen && isOwner && (
-                            <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} className="absolute right-0 top-8 z-20 w-48 rounded-2xl bg-white p-1.5 shadow-lg">
-                              {PROJECT_STATUSES.map((s) => (<button key={s} onClick={() => { setStatusMenuOpen(false); supabase.from("projects").update({ status: s }).eq("id", projectId).then(() => { setProject((p) => p ? { ...p, status: s } : p); alert(`Status set to ${statusLabel(s)}`) }) }} className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-xs font-semibold text-[#22393c] hover:bg-[#22393c]/5">{statusLabel(s)}{project.status === s && <CheckCircle2 className="size-3.5" />}</button>))}
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </div>
-                      {isOwner ? (
-                        <div className="flex rounded-full bg-[#22393c]/10 p-0.5">
-                          {PROJECT_VISIBILITIES.map((v) => (<button key={v} onClick={() => { supabase.from("projects").update({ visibility: v }).eq("id", projectId).then(() => { setProject((p) => p ? { ...p, visibility: v } : p); alert(`Visibility set to ${v}`) }) }} className={`rounded-full px-2.5 py-1 text-[9px] font-bold uppercase tracking-wider transition-all ${project.visibility === v ? "bg-[#22393c] text-white" : "text-[#22393c]/70"}`}>{v}</button>))}
-                        </div>
-                      ) : (
-                        <span className="rounded-full bg-[#22393c]/10 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-[#22393c]">{project.visibility}</span>
-                      )}
-                    </div>
-                  </div>
-                  <p className="mb-3 text-sm text-[#22393c]/80">{project.description}</p>
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-[#668184]">
-                    <span className="flex items-center gap-1"><Users className="size-3" />Owner: {project.people?.full_name || "Unknown"}</span>
-                    {project.mentor?.full_name && <span className="flex items-center gap-1"><Award className="size-3" />Mentor: {project.mentor.full_name}</span>}
-                    <span className="flex items-center gap-1"><GitBranch className="size-3" />{project.departments?.name || "General"}</span>
-                    <span className="flex items-center gap-1"><Clock className="size-3" />Created: {formatDate(project.created_at)}</span>
-                    {project.end_date && <span className="flex items-center gap-1"><CheckCircle2 className="size-3" />Completed: {formatDate(project.end_date)}</span>}
-                  </div>
-                </div>
-              </div>
-              <div className="mt-4 flex flex-wrap gap-3 border-t border-[#22393c]/10 pt-4">
-                {project.github_url ? (<a href={project.github_url} target="_blank" rel="noreferrer" className="flex items-center gap-2 rounded-full bg-[#22393c]/10 px-4 py-2 text-xs font-medium hover:bg-[#22393c]/20"><Code className="size-4" /> GitHub</a>) : isOwner && (<button onClick={() => setShowAddLink("github")} className="flex items-center gap-2 rounded-full border border-dashed border-[#22393c]/30 px-4 py-2 text-xs font-semibold text-[#22393c]/70 hover:bg-[#22393c]/5"><Plus className="size-4" /> Add GitHub Link</button>)}
-                {project.demo_url ? (<a href={project.demo_url} target="_blank" rel="noreferrer" className="flex items-center gap-2 rounded-full bg-[#8a9a7b]/20 px-4 py-2 text-xs font-medium hover:bg-[#8a9a7b]/30"><ExternalLink className="size-4" /> Live Demo</a>) : isOwner && (<button onClick={() => setShowAddLink("demo")} className="flex items-center gap-2 rounded-full border border-dashed border-[#8a9a7b] px-4 py-2 text-xs font-semibold text-[#8a9a7b] hover:bg-[#8a9a7b]/10"><Plus className="size-4" /> Add Demo Link</button>)}
-                {project.links?.map((link: any, i: number) => (<a key={i} href={link.url} target="_blank" rel="noreferrer" className="flex items-center gap-2 rounded-full bg-white/60 px-4 py-2 text-xs font-medium hover:bg-white"><LinkIcon className="size-4" /> {link.label}</a>))}
-                {isOwner && (<button onClick={() => setShowAddLink("custom")} className="flex items-center gap-2 rounded-full border border-dashed border-[#22393c]/30 px-4 py-2 text-xs font-semibold text-[#22393c]/70 hover:bg-[#22393c]/5"><Plus className="size-4" /> Add Link</button>)}
-              </div>
-            </motion.section>
-
-            {!isOwner && (
-              <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass-button glass-neutral rounded-3xl p-4">
-                <div className="flex flex-col gap-3 sm:flex-row">
-                  {isTeamMember ? (
-                    <div className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-[#8a9a7b]/15 px-4 py-3 text-sm font-semibold text-[#22393c]">
-                      <CheckCircle2 className="size-4 text-[#8a9a7b]" /> You're on the team
-                    </div>
-                  ) : hasPendingRequest ? (
-                    <div className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-[#c99a5b]/15 px-4 py-3 text-sm font-semibold text-[#22393c]">
-                      <Clock className="size-4 text-[#c99a5b]" /> Request Pending
-                    </div>
-                  ) : teamIsFull ? (
-                    <div className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-[#22393c]/10 px-4 py-3 text-sm font-semibold text-[#668184]">
-                      <Users className="size-4" /> Team Full
-                    </div>
-                  ) : (
-                    <button type="button" onClick={handleRequestToJoin} disabled={!canRequestToJoin} className="flex-1 rounded-2xl bg-[#22393c] px-4 py-3 text-sm font-semibold text-white transition-all hover:scale-[1.01] hover:bg-[#2d4a4e] disabled:cursor-not-allowed disabled:opacity-50">
-                      Request to Join
-                    </button>
-                  )}
-                  {project.owner_id && (
-                    <Link href={`/chat/${project.owner_id}`} className="flex items-center justify-center gap-2 rounded-2xl bg-[#8a9a7b] px-5 py-3 text-sm font-semibold text-white transition-transform hover:scale-[1.01]">
-                      <MessageCircle className="size-4" /> <span>Message Owner</span>
-                    </Link>
-                  )}
-                </div>
-              </motion.section>
-            )}
-
-            <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-              <div className="mb-4 flex items-center justify-between">
-                <h3 className="flex items-center gap-2 text-lg font-semibold"><Users className="size-5 text-[#8a9a7b]" /> Team Composition</h3>
-                <span className="text-sm font-medium text-[#668184]">{teamMembers.length}/5</span>
-              </div>
-              <div className="glass-button glass-neutral rounded-3xl p-4">
-                <div className="mb-3 flex -space-x-2">
-                  {teamMembers.slice(0, 5).map((member) => (<div key={member.id} title={member.people?.full_name || "Team member"} className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-white bg-[#8a9a7b] text-xs font-bold text-white">{getInitials(member.people?.full_name)}</div>))}
-                </div>
-                <p className="text-xs text-[#668184]">{teamMembers.length < 5 ? `${5 - teamMembers.length} open slot${5 - teamMembers.length > 1 ? "s" : ""}` : "Team is full"}</p>
-              </div>
-            </motion.section>
-
-            {/* ✅ UPDATED: Skills & Tools Section with Edit Button */}
-            <section>
-              <div className="mb-3 flex items-center justify-between">
-                <h3 className="text-sm font-bold uppercase tracking-wider text-[#668184]">Skills & Tools</h3>
-                {isOwner && (
-                  <button onClick={() => setShowEditSkillsTools(true)} className="flex items-center gap-1 text-xs font-semibold text-[#8a9a7b] hover:text-[#22393c] transition-colors">
-                    <Pencil className="size-3" /> Edit
-                  </button>
-                )}
-              </div>
-              <div className="glass-button glass-neutral flex flex-wrap gap-2 rounded-3xl p-4">
-                {skills.map((skill: any, index: number) => {
-                  const teamSkillIdsSet = new Set(teamMembers.flatMap((m) => [...(m.people?.people_skills?.map((ps) => ps.skills?.id) || []), ...(m.covered_skill_ids || [])]).filter(Boolean))
-                  const hasIt = teamSkillIdsSet.has(skill.skills?.id)
-                  return (<span key={index} className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold ${hasIt ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>{skill.skills?.name} {hasIt ? <CheckCircle2 className="size-3" /> : <X className="size-3" />}</span>)
-                })}
-                {tools.map((tool: any, index: number) => (<a key={index} href={tool.tools?.website_url || "#"} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 rounded-full bg-[#22393c]/10 px-4 py-2 text-xs font-semibold text-[#22393c] hover:bg-[#22393c]/20">{tool.tools?.name} <ExternalLink className="size-3" /></a>))}
-                {skills.length === 0 && tools.length === 0 && <p className="text-xs text-[#668184] italic">No skills or tools listed yet.</p>}
-              </div>
-            </section>
-
-            {(parentNodes.length > 0 || childNodes.length > 0 || siblingNodes.length > 0 || isOwner) && (
-              <section>
-                <h3 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-[#668184]"><GitBranch className="size-4 text-[#8a9a7b]" /> Project Lineage</h3>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                  <div className="glass-button glass-lilac rounded-2xl p-4">
-                    <h4 className="mb-2 text-xs font-bold text-[#668184]">Parents ({parentNodes.length})</h4>
-                    {parentNodes.length > 0 ? parentNodes.map((p: any) => (<Link key={p.id} href={`/projects/${p.id}`} className="mb-1 block rounded bg-white/50 p-2 text-xs transition-colors hover:bg-white">{p.title}</Link>)) : <p className="text-xs italic text-[#668184]">None</p>}
-                  </div>
-                  <div className="glass-button glass-peach rounded-2xl p-4">
-                    <h4 className="mb-2 text-xs font-bold text-[#668184]">Siblings ({siblingNodes.length})</h4>
-                    {siblingNodes.length > 0 ? siblingNodes.map((s: any) => (<Link key={s.id} href={`/projects/${s.id}`} className="mb-1 block rounded bg-white/50 p-2 text-xs transition-colors hover:bg-white">{s.title}</Link>)) : <p className="text-xs italic text-[#668184]">None</p>}
-                  </div>
-                  <div className="glass-button glass-aqua rounded-2xl p-4">
-                    <h4 className="mb-2 text-xs font-bold text-[#668184]">Children ({childNodes.length})</h4>
-                    {childNodes.length > 0 ? childNodes.map((c: any) => (<Link key={c.id} href={`/projects/${c.id}`} className="mb-1 block rounded bg-white/50 p-2 text-xs transition-colors hover:bg-white">{c.title}</Link>)) : <p className="mb-2 text-xs italic text-[#668184]">None</p>}
-                    {isOwner && (<button onClick={() => setShowCreateChild(true)} className="mt-2 flex w-full items-center justify-center gap-1 rounded border border-dashed border-[#8a9a7b] p-2 text-xs font-bold text-[#8a9a7b] transition-colors hover:bg-[#8a9a7b]/10"><Plus className="size-3" /> Create Child Project</button>)}
-                  </div>
-                </div>
-              </section>
-            )}
-          </>
+          <ProjectOverviewTab
+            project={project}
+            projectId={projectId}
+            teamMembers={teamMembers}
+            skills={skills}
+            tools={tools}
+            lineages={lineages}
+            recommendedTeammates={recommendedTeammates}
+            isOwner={isOwner}
+            isTeamMember={isTeamMember}
+            hasPendingRequest={hasPendingRequest}
+            teamIsFull={teamIsFull}
+            canRequestToJoin={canRequestToJoin}
+            onShowAddLink={() => setShowAddLink("custom")}
+            onShowCreateChild={() => setShowCreateChild(true)}
+            onRequestToJoin={handleRequestToJoin}
+            onRefresh={refreshData}
+          />
         )}
 
         {activeTab === "team" && (
@@ -1222,7 +1100,6 @@ export function ProjectDetailsView({ projectId }: ProjectDetailsViewProps) {
             onSuccess={() => { setShowEditProject(false); refreshData() }}
           />
         )}
-        {/* ✅ NEW: Edit Skills & Tools Modal */}
         {showEditSkillsTools && (
           <EditSkillsToolsModal
             projectId={projectId}
