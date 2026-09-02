@@ -1,4 +1,5 @@
 "use client"
+
 import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import {
@@ -10,6 +11,7 @@ import {
   ArrowLeft,
   Loader2,
   ShieldCheck,
+  Sparkles,
 } from "lucide-react"
 import { toast } from "sonner"
 import { supabase } from "@/lib/supabase/client"
@@ -64,10 +66,6 @@ export function CampusLegacyLogin() {
     setError("")
   }
 
-  // Sign-in and sign-up are now two explicit paths instead of one form that
-  // guessed which the person meant based on the error message. That old
-  // approach meant a typo'd password on an EXISTING account would silently
-  // attempt to create a new one instead of just saying "wrong password".
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
@@ -92,13 +90,6 @@ export function CampusLegacyLogin() {
     setLoading(true)
     setError("")
     try {
-      // SECURITY: Faculty/Admin are never written as the actual `role` here.
-      // The previous version trusted whatever role button the person tapped
-      // and stored it directly as their access role — meaning anyone could
-      // click "Login as Admin" and self-grant admin access. Verified roles
-      // now always sign up as "student" plus a pending request that a real
-      // admin has to approve server-side (e.g. via a `role_requests` table
-      // or an edge function that checks a verified staff email domain).
       const effectiveRole = isVerifiedRoleSelected ? "student" : selectedRole
 
       const { data, error } = await supabase.auth.signUp({
@@ -115,8 +106,6 @@ export function CampusLegacyLogin() {
       if (error) throw error
 
       if (isVerifiedRoleSelected && data?.user) {
-        // Best-effort: log the verification request. If this table doesn't
-        // exist yet, signup still succeeds — just add the table server-side.
         await supabase.from("role_requests").insert({
           person_id: data.user.id,
           requested_role: selectedRole,
@@ -147,6 +136,37 @@ export function CampusLegacyLogin() {
       setForgotSent(true)
     } catch (err) {
       setError(getAuthErrorMessage(err))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // ✅ NEW: One-Click Demo Login for SIH Judges
+  const handleDemoLogin = async () => {
+    setLoading(true)
+    setError("")
+    
+    // ⚠️ REPLACE THESE with the actual email and password of your demo account!
+    // (Supabase client-side auth requires email/password, not just the UUID)
+    const demoEmail = "sadiasshaheen@gmail.com"
+    const demoPassword = "password"
+    
+    setEmail(demoEmail)
+    setPassword(demoPassword)
+
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({ 
+        email: demoEmail, 
+        password: demoPassword 
+      })
+      if (error) throw error
+      
+      if (data?.session) {
+        // Redirect to the most impressive part of your app for the demo
+        router.push("/discover") 
+      }
+    } catch (err) {
+      setError("Demo login failed. Please update the demoEmail/demoPassword in the code.")
     } finally {
       setLoading(false)
     }
@@ -283,15 +303,34 @@ export function CampusLegacyLogin() {
                 <div className="h-px flex-1 bg-[#22393c]/12" />
               </div>
 
+              {/* ✅ NEW: One-Click Demo Login Button */}
+              <motion.button
+                type="button"
+                onClick={handleDemoLogin}
+                disabled={loading}
+                className="glass-button flex w-full items-center justify-center gap-3 rounded-full border border-[#8a9a7b]/30 bg-[#8a9a7b]/10 px-5 py-4 text-sm font-semibold text-[#22393c] transition-transform hover:-translate-y-0.5 disabled:opacity-50"
+              >
+                {loading ? (
+                  <Loader2 className="size-[18px] animate-spin" />
+                ) : (
+                  <Sparkles aria-hidden="true" className="size-[18px] text-[#8a9a7b]" strokeWidth={1.8} />
+                )}
+                Skip Sign-Up & Enter Demo
+              </motion.button>
+
               <motion.button
                 type="button"
                 onClick={handleGuestLogin}
                 disabled={loading}
-                className="glass-button glass-neutral flex w-full items-center justify-center gap-3 rounded-full px-5 py-4 text-sm font-semibold text-[#22393c] transition-transform hover:-translate-y-0.5 disabled:opacity-50"
+                className="glass-button glass-neutral mt-3 flex w-full items-center justify-center gap-3 rounded-full px-5 py-4 text-sm font-semibold text-[#22393c] transition-transform hover:-translate-y-0.5 disabled:opacity-50"
               >
                 {loading ? <Loader2 className="size-[18px] animate-spin" /> : <UserCircle aria-hidden="true" className="size-[18px]" strokeWidth={1.8} />}
                 Continue as Guest
               </motion.button>
+              
+              <p className="mt-2 text-center text-[10px] text-[#668184]">
+                Demo account comes pre-loaded with projects, AI matches, and graph data.
+              </p>
             </motion.div>
           )}
 
