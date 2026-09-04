@@ -163,7 +163,7 @@ export function CampusLegacyLogin() {
       
       if (data?.session) {
         // Redirect to the most impressive part of your app for the demo
-        router.push("/discover") 
+        router.push("/dashboard") 
       }
     } catch (err) {
       setError("Demo login failed. Please update the demoEmail/demoPassword in the code.")
